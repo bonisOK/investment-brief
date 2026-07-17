@@ -1,0 +1,13 @@
+# DR base token -> real ticker overrides. Checked before Yahoo search.
+# Key = base token after stripping trailing digits (uppercase).
+overrides:
+  TENCENT: TCEHY      # Tencent US ADR
+  NOVOB: NVO          # Novo Nordisk US ADR
+  UNIQLO: FRCOY       # Fast Retailing US ADR
+  CPAX: CPAXT.BK      # CP Axtra
+  ADVANCE: ADVANC.BK  # Advanced Info Service (Dividend tab spelling)
+  MICRON: MU
+  COSTCO: COST
+  FERRARI: RACE
+  LOREAL: OR.PA       # search mis-resolves to a Canadian CDR
+  HERMES: RMS.PA      # search mis-resolves to Federated Hermes (FHI)

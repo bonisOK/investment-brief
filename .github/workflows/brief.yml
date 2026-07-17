@@ -1,0 +1,62 @@
+name: Investment Brief
+
+on:
+  schedule:
+    - cron: "0 23 * * *"   # 06:00 Asia/Bangkok
+    - cron: "0 11 * * *"   # 18:00 Asia/Bangkok
+  workflow_dispatch: {}     # manual "Run workflow" button
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # Carry the SQLite DB (ticker-resolution cache + run history) between runs.
+      - uses: actions/cache@v4
+        with:
+          path: data
+          key: brief-db-${{ github.run_id }}
+          restore-keys: brief-db-
+
+      - run: pip install -r requirements.txt
+
+      - name: Run pipeline and render page
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          APPS_SCRIPT_URL: ${{ secrets.APPS_SCRIPT_URL }}
+        run: python -m app.render_static
+
+      - name: Encrypt page (StatiCrypt)
+        run: |
+          cd site
+          npx -y staticrypt index.html -d ../dist \
+            --template-title "Investment Brief" \
+            --remember 30 \
+            -p "${{ secrets.PAGE_PASSWORD }}"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

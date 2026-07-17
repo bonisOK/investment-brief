@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investment Brief</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --page: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --pos: #2a78d6;       /* diverging cool pole: gains / buy */
+    --neg: #e34948;       /* diverging warm pole: losses / sell */
+    --good-text: #006300;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --page: #0d0d0d;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --muted: #898781;
+      --grid: #2c2c2a;
+      --baseline: #383835;
+      --border: rgba(255,255,255,0.10);
+      --pos: #3987e5;
+      --neg: #e66767;
+      --good-text: #0ca30c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px; line-height: 1.45;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 16px; }
+  header.top { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  h1 { font-size: 1.25rem; margin: 0; }
+  .meta { color: var(--text-secondary); font-size: .85rem; }
+  .runbtn { font-size: .85rem; color: var(--text-secondary); text-decoration: none; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; background: var(--surface-1); cursor: pointer; }
+
+  .banner { background: var(--surface-1); border: 1px solid var(--border); border-left: 4px solid var(--pos); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: .9rem; }
+
+  /* Today's brief */
+  .briefcard { margin-bottom: 16px; }
+  .briefsum { margin: 0 0 12px; color: var(--text-primary); font-size: .92rem; }
+  .briefgroup { margin-top: 14px; }
+  .briefgroup h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; margin: 0 0 8px; padding-bottom: 5px; border-bottom: 2px solid var(--grid); }
+  .bg-act { color: var(--neg); border-bottom-color: color-mix(in srgb, var(--neg) 45%, transparent) !important; }
+  .bg-watch { color: var(--text-secondary); }
+  .bg-fyi { color: var(--muted); }
+  .newsitem { background: color-mix(in srgb, var(--text-primary) 3%, transparent); border: 1px solid var(--grid); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: .88rem; line-height: 1.5; }
+  .newsitem a { color: var(--text-primary); text-decoration: none; font-weight: 600; }
+  .newsitem a:hover { text-decoration: underline; }
+  .actionbox { margin-top: 7px; border-left: 3px solid var(--pos); padding: 4px 10px; background: color-mix(in srgb, var(--pos) 6%, transparent); border-radius: 0 8px 8px 0; }
+  .actline { font-weight: 600; font-size: .85rem; }
+  .actdetail { font-size: .8rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .tkchip { display: inline-block; font-size: .7rem; font-weight: 700; color: var(--pos); border: 1px solid color-mix(in srgb, var(--pos) 40%, transparent); border-radius: 5px; padding: 1px 6px; margin-right: 6px; vertical-align: 1px; }
+  .minilogo { width: 13px; height: 13px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
+
+  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .card h2 { font-size: .95rem; margin: 0 0 10px; }
+  .card .plot { position: relative; }
+  .card .sub { color: var(--muted); font-size: .78rem; margin: -6px 0 10px; }
+
+  section.book { margin-bottom: 28px; }
+  section.book > h2 { font-size: 1.05rem; margin: 0 0 4px; }
+  section.book > .sub { color: var(--muted); font-size: .8rem; margin-bottom: 10px; }
+  .tablewrap { overflow-x: auto; background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; }
+  th { text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; padding: 10px 10px 6px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; vertical-align: top; }
+  tr.mainrow { cursor: pointer; }
+  tr.mainrow:hover td { background: color-mix(in srgb, var(--text-primary) 4%, transparent); }
+  tr:last-child td { border-bottom: none; }
+  .tick { font-weight: 650; white-space: nowrap; }
+  .logo { width: 18px; height: 18px; border-radius: 4px; vertical-align: -4px; margin-right: 7px; background: var(--surface-1); }
+  .expbtn { float: right; font-size: .75rem; color: var(--text-secondary); background: none; border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+  .tick .real { color: var(--muted); font-weight: 400; font-size: .78rem; }
+  .co { color: var(--text-secondary); font-size: .85rem; }
+  .num { text-align: right; white-space: nowrap; }
+  .pos { color: var(--pos); } .neg { color: var(--neg); }
+  .pctcell { display: inline-block; min-width: 52px; text-align: right; padding: 2px 6px; border-radius: 6px; }
+  .lbl { display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .03em; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border); white-space: nowrap; }
+  .lbl.buy  { color: var(--pos); border-color: color-mix(in srgb, var(--pos) 45%, transparent); }
+  .lbl.sell { color: var(--neg); border-color: color-mix(in srgb, var(--neg) 45%, transparent); }
+  .lbl.hold { color: var(--text-secondary); }
+  .score { color: var(--muted); font-size: .78rem; }
+  .act { font-size: .78rem; font-weight: 700; white-space: nowrap; margin-top: 2px; }
+  .why { color: var(--muted); font-size: .72rem; margin-top: 3px; max-width: 240px; line-height: 1.35; }
+
+  tr.detail { display: none; }
+  tr.detail.open { display: table-row; }
+  tr.detail > td { background: color-mix(in srgb, var(--text-primary) 3%, transparent); padding: 14px 16px; }
+  .newscard h4 { margin: 0 0 4px; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .newscard p { margin: 0 0 10px; color: var(--text-primary); }
+  .subs { display: flex; flex-wrap: wrap; gap: 14px; color: var(--text-secondary); font-size: .8rem; margin-bottom: 10px; }
+  .subs b { color: var(--text-primary); }
+  ul.headlines { margin: 0; padding-left: 18px; }
+  ul.headlines li { margin-bottom: 4px; font-size: .86rem; }
+  ul.headlines a { color: var(--pos); text-decoration: none; }
+  ul.headlines a:hover { text-decoration: underline; }
+  .src { color: var(--muted); font-size: .76rem; }
+  .thesis { color: var(--muted); font-style: italic; font-size: .8rem; }
+  footer { color: var(--muted); font-size: .75rem; text-align: center; padding: 20px 0 30px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>📈 Investment Brief</h1>
+  <div class="meta">
+    Last run: {{ snap.run_at_display }} (Bangkok)
+    {% if not static_mode %}<form method="post" action="/run" style="display:inline"><button class="runbtn">⟳ Refresh data</button></form>{% endif %}
+    <button class="runbtn" id="privbtn" onclick="togglePrivacy()">🙈 Hide ฿</button>
+  </div>
+</header>
+
+{% if started %}
+<div class="banner">
+  ⏳ Refresh started — pulling prices, news and AI analysis for every stock.
+  This takes ~3–4 minutes; the page reloads automatically.
+</div>
+<script>setTimeout(() => location.replace('/'), 60000);</script>
+{% endif %}
+
+{% if snap.brief and snap.brief['items'] %}
+<div class="card briefcard">
+  <h2>📰 Today's brief</h2>
+  {% if snap.brief.summary %}<p class="briefsum">{{ snap.brief.summary }}</p>{% endif %}
+  {% for gkey, gtitle in [('act', '🔴 ACT NOW'), ('watch', '🟡 WATCH'), ('fyi', '⚪ FYI')] %}
+    {% set gitems = snap.brief['items'] | selectattr('urgency', 'equalto', gkey) | list %}
+    {% if gitems %}
+    <div class="briefgroup">
+      <h3 class="bg-{{ gkey }}">{{ gtitle }} <span class="score">({{ gitems|length }})</span></h3>
+      {% for it in gitems %}
+      <div class="newsitem">
+        <div>
+          {% for t in it.tickers %}<span class="tkchip">{% if ticker_domains.get(t) %}<img class="minilogo" src="https://www.google.com/s2/favicons?domain={{ ticker_domains.get(t) }}&sz=32" loading="lazy" alt="" onerror="this.remove()">{% endif %}{{ t }}</span>{% endfor %}
+          <a href="{{ it.link }}" target="_blank" rel="noopener">{{ it.title }}</a>
+          <span class="src">{{ it.publisher }}</span>
+        </div>
+        <div class="why">{{ it.why }}</div>
+        {% if it.action or it.actions %}
+        <div class="actionbox">
+          {% if it.action %}<div class="actline">👉 {{ it.action }}</div>{% endif %}
+          {% for a in it.actions or [] %}
+            <div class="actdetail">{{ a.code }} <span class="score">({{ a.book }})</span> — {{ a.label }}{% if a.act_thb %}: {{ 'buy' if a.act_thb > 0 else 'sell' }} ฿{{ "{:,.0f}".format(a.act_thb if a.act_thb > 0 else -a.act_thb) }}{% if a.act_price %} @ {{ '≤' if a.act_thb > 0 else '≥' }} {{ "{:,.2f}".format(a.act_price) }} {{ a.currency or '' }}{% endif %}{% endif %}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="charts">
+  <div class="card"><h2>Movers today <button class="expbtn" id="moversbtn" onclick="toggleMovers()">Show all</button></h2><div class="sub" id="movers-sub">top 5 up · top 5 down (1-day %)</div><div class="plot"><canvas id="movers"></canvas></div></div>
+  <div class="card"><h2>STRONG BUY</h2><div class="sub">every name scoring ≥75</div><div class="plot"><canvas id="buys"></canvas></div></div>
+  <div class="card"><h2>SELL</h2><div class="sub">every name scoring &lt;25</div><div class="plot"><canvas id="sells"></canvas></div></div>
+</div>
+
+{# Diverging color scale: background tint scales with magnitude, capped at
+   `sat` percent move; blue = up, red = down, neutral at zero. #}
+{% macro pct(v, sat=8) -%}
+  {%- if v is none -%}<span class="score">–</span>
+  {%- else -%}
+    {%- set mag = v if v >= 0 else -v -%}
+    {%- set tint = (mag / sat * 42) if mag < sat else 42 -%}
+    <span class="pctcell" style="background: color-mix(in srgb, var({{ '--pos' if v > 0 else '--neg' }}) {{ '%.0f'|format(tint) }}%, transparent)">{{ "%+.1f"|format(v) }}%</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro thb(v) -%}
+  {%- if v is none or v == 0 -%}<span class="score">–</span>
+  {%- elif v > 0 -%}<span class="pos thb">+{{ "{:,.0f}".format(v) }}</span>
+  {%- else -%}<span class="neg thb">{{ "{:,.0f}".format(v) }}</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro label_chip(scores, currency) -%}
+  {%- set l = scores.label -%}
+  <span class="lbl {{ 'buy' if 'BUY' in l or l == 'ADD' else ('sell' if l in ('SELL','TRIM') else 'hold') }}">{{ l }}</span>
+  <div class="score">{{ scores.composite }}</div>
+  {%- if scores.act_thb -%}
+    <div class="act {{ 'pos' if scores.act_thb > 0 else 'neg' }}">Today: {{ 'buy' if scores.act_thb > 0 else 'sell' }} ฿{{ "{:,.0f}".format(scores.act_thb if scores.act_thb > 0 else -scores.act_thb) }}</div>
+    {%- if scores.act_price -%}
+      <div class="score">@ {{ '≤' if scores.act_thb > 0 else '≥' }} {{ "{:,.2f}".format(scores.act_price) }} {{ currency or '' }}</div>
+    {%- endif -%}
+  {%- endif -%}
+  {%- if scores.act_reason -%}
+    <div class="why">{{ scores.act_reason }}</div>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro detail_row(r, cols) %}
+  <tr class="detail"><td colspan="{{ cols }}">
+    <div class="newscard">
+      {% if r.reasons %}<p class="thesis">Your thesis: “{{ r.reasons }}”</p>{% endif %}
+      <div class="subs">
+        <span>Drift <b>{{ r.scores.drift }}</b></span>
+        <span>Value <b>{{ r.scores.value }}</b></span>
+        <span>Fear/Greed <b>{{ r.scores.fng }}</b></span>
+        <span>News <b>{{ r.scores.news }}</b></span>
+        <span>Stock F&amp;G <b>{{ r.stock_greed if r.stock_greed is not none else "–" }}</b></span>
+        <span>RSI(14) <b>{{ r.rsi14 if r.rsi14 is not none else "–" }}</b></span>
+        <span>Valuation basis: <b>{{ r.value_basis }}</b></span>
+      </div>
+      <h4>Why it moved (likely)</h4><p>{{ r.why_moved or "—" }}</p>
+      {% if r.so_what %}<h4>So what</h4><p>{{ r.so_what }}</p>{% endif %}
+      {% if r.news %}
+        <h4>Headlines</h4>
+        <ul class="headlines">
+        {% for n in r.news %}
+          <li><a href="{{ n.link }}" target="_blank" rel="noopener">{{ n.title }}</a>
+              <span class="src">{{ n.publisher }}{% if n.published %} · {{ n.published[:16] }}{% endif %}</span></li>
+        {% endfor %}
+        </ul>
+      {% else %}<p class="score">No recent headlines found.</p>{% endif %}
+    </div>
+  </td></tr>
+{% endmacro %}
+
+<section class="book">
+  <h2>Growth book — MINT MEGA</h2>
+  <div class="sub">Tap a row for the news card. Drift = total gap to your target (Target Cost − Current Value); the amount under each suggestion is the LLM's tranche for today.</div>
+  <div class="tablewrap"><table>
+    <thead><tr>
+      <th>Ticker</th><th>Company</th><th>Suggestion</th>
+      <th class="num">1D</th><th class="num">1W</th><th class="num">1M</th>
+      <th class="num">Drift to target ฿</th><th class="num">Under-valued</th><th class="num">P/E</th>
+    </tr></thead>
+    <tbody>
+    {% for r in growth %}
+      <tr class="mainrow" onclick="toggle(this)">
+        <td class="tick">{% if r.domain %}<img class="logo" src="https://www.google.com/s2/favicons?domain={{ r.domain }}&sz=64" loading="lazy" alt="" onerror="this.remove()">{% endif %}{{ r.dr_code }}<br><span class="real">{{ r.real_ticker }}</span></td>
+        <td class="co">{{ r.company_name }}</td>
+        <td>{{ label_chip(r.scores, r.currency) }}</td>
+        <td class="num">{{ pct(r.chg_1d) }}</td>
+        <td class="num">{{ pct(r.chg_1w) }}</td>
+        <td class="num">{{ pct(r.chg_1m) }}</td>
+        <td class="num">{{ thb(r.buy_sell_thb) }}</td>
+        <td class="num">{{ pct(r.undervalued_pct, 40) }}</td>
+        <td class="num">{{ "%.1f"|format(r.trailing_pe) if r.trailing_pe else "–" }}</td>
+      </tr>
+      {{ detail_row(r, 9) }}
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+
+<section class="book">
+  <h2>Dividend book</h2>
+  <div class="sub">Thai + US + Asia + Europe income names. Drift is the sheet's own total gap to target; the amount under each suggestion is the LLM's tranche for today. Thai news comes from Thai-language sources.</div>
+  <div class="tablewrap"><table>
+    <thead><tr>
+      <th>Stock</th><th>Company</th><th>Suggestion</th>
+      <th class="num">1D</th><th class="num">1W</th><th class="num">1M</th>
+      <th class="num">Drift to target ฿</th><th class="num">Yield</th><th class="num">Under-valued</th>
+    </tr></thead>
+    <tbody>
+    {% for r in dividend %}
+      <tr class="mainrow" onclick="toggle(this)">
+        <td class="tick">{% if r.domain %}<img class="logo" src="https://www.google.com/s2/favicons?domain={{ r.domain }}&sz=64" loading="lazy" alt="" onerror="this.remove()">{% endif %}{{ r.dr_code }}<br><span class="real">{{ r.real_ticker }} · {{ r.section }}</span></td>
+        <td class="co">{{ r.company_name }}</td>
+        <td>{{ label_chip(r.scores, r.currency) }}</td>
+        <td class="num">{{ pct(r.chg_1d) }}</td>
+        <td class="num">{{ pct(r.chg_1w) }}</td>
+        <td class="num">{{ pct(r.chg_1m) }}</td>
+        <td class="num">{{ thb(r.buy_sell_thb) }}</td>
+        <td class="num">{{ "%.2f"|format(r.dividend_yield) ~ "%" if r.dividend_yield else "–" }}</td>
+        <td class="num">{{ pct(r.undervalued_pct, 40) }}</td>
+      </tr>
+      {{ detail_row(r, 9) }}
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+
+<footer>
+  Advisory only — not financial advice. No orders are placed; act manually in DIME.<br>
+  Pipeline runs 06:00 &amp; 18:00 Asia/Bangkok · run took {{ snap.duration_s }}s
+</footer>
+</div>
+
+<script>
+function toggle(tr) {
+  const d = tr.nextElementSibling;
+  if (d && d.classList.contains('detail')) d.classList.toggle('open');
+}
+
+/* Privacy mode: mask every THB amount tied to portfolio size. */
+const THB_RE = /฿\s?[\d,]+(?:\.\d+)?/g;
+function applyPrivacy(on) {
+  // 1. Bare-number drift cells (marked with .thb)
+  document.querySelectorAll('.thb').forEach(el => {
+    if (on) { el.dataset.orig ??= el.textContent; el.textContent = '****'; }
+    else if (el.dataset.orig) { el.textContent = el.dataset.orig; delete el.dataset.orig; }
+  });
+  // 2. Any ฿-prefixed amount in text (chips, reasons, brief actions, AI text)
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = walker.nextNode())) {
+    if (on) {
+      if (THB_RE.test(n.nodeValue)) { n._orig = n.nodeValue; n.nodeValue = n.nodeValue.replace(THB_RE, '฿****'); }
+      THB_RE.lastIndex = 0;
+    } else if (n._orig) { n.nodeValue = n._orig; delete n._orig; }
+  }
+  document.getElementById('privbtn').textContent = on ? '👁 Show ฿' : '🙈 Hide ฿';
+  localStorage.setItem('privacy', on ? '1' : '0');
+}
+function togglePrivacy() { applyPrivacy(localStorage.getItem('privacy') !== '1'); }
+if (localStorage.getItem('privacy') === '1') addEventListener('DOMContentLoaded', () => applyPrivacy(true));
+
+const DATA = {{ chart_json | safe }};
+const css = getComputedStyle(document.documentElement);
+const C = {
+  pos: css.getPropertyValue('--pos').trim(),
+  neg: css.getPropertyValue('--neg').trim(),
+  grid: css.getPropertyValue('--grid').trim(),
+  muted: css.getPropertyValue('--muted').trim(),
+  ink: css.getPropertyValue('--text-primary').trim(),
+};
+Chart.defaults.font.family = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+Chart.defaults.color = C.muted;
+
+function hbar(id, labels, values, colorFn, xTitle, xMin, xMax) {
+  const canvas = document.getElementById(id);
+  const plot = canvas.parentElement;
+  if (!labels.length) {
+    plot.style.height = 'auto';
+    plot.innerHTML = '<p style="color:var(--muted);font-size:.85rem;margin:6px 0">None today.</p>';
+    return;
+  }
+  plot.style.height = (labels.length * 22 + 70) + 'px';
+  new Chart(canvas, {
+    type: 'bar',
+    data: { labels, datasets: [{
+      data: values,
+      backgroundColor: values.map(colorFn),
+      borderRadius: 4,
+      borderSkipped: false,
+      barThickness: 14,
+    }]},
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `${xTitle}: ${ctx.parsed.x}` } },
+      },
+      scales: {
+        x: { min: xMin, max: xMax, grid: { color: C.grid }, border: { display: false },
+             title: { display: true, text: xTitle, color: C.muted, font: { size: 11 } } },
+        y: { grid: { display: false }, border: { display: false },
+             ticks: { color: C.ink, font: { size: 12 } } },
+      },
+    },
+  });
+}
+
+let moversExpanded = false;
+function renderMovers() {
+  const all = DATA.movers;
+  let labels = all.labels, values = all.values;
+  if (!moversExpanded && labels.length > 12) {
+    labels = labels.slice(0, 5).concat(labels.slice(-5));
+    values = values.slice(0, 5).concat(values.slice(-5));
+  }
+  const existing = Chart.getChart(document.getElementById('movers'));
+  if (existing) existing.destroy();
+  hbar('movers', labels, values, v => (v >= 0 ? C.pos : C.neg), '1-day % change');
+}
+function toggleMovers() {
+  moversExpanded = !moversExpanded;
+  document.getElementById('moversbtn').textContent = moversExpanded ? 'Show top 10' : 'Show all';
+  document.getElementById('movers-sub').textContent = moversExpanded
+    ? `all ${DATA.movers.labels.length} stocks (1-day %)` : 'top 5 up · top 5 down (1-day %)';
+  renderMovers();
+}
+renderMovers();
+hbar('buys', DATA.buys.labels, DATA.buys.values, () => C.pos, 'composite score', 0, 100);
+hbar('sells', DATA.sells.labels, DATA.sells.values, () => C.neg, 'composite score', 0, 100);
+</script>
+</body>
+</html>

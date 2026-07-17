@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+apscheduler
+jinja2
+pandas
+yfinance
+feedparser
+requests
+httpx
+google-generativeai
+python-dotenv
+pydantic
+pyyaml

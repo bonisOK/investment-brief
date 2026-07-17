@@ -1,0 +1,73 @@
+# Score weights (must sum to 1.0)
+weights:
+  drift: 0.35        # allocation drift from sheet ("Real Have to buy" / weight gap)
+  value: 0.30        # intrinsic value (DCF + analyst target vs price)
+  fng: 0.20          # CNN Fear & Greed (contrarian: fear -> buy)
+  news: 0.15         # Gemini news sentiment
+
+# For Thai stocks the US-market Fear & Greed gauge means less:
+# effective F&G score is blended toward neutral (50) by this factor.
+thai_fng_dampen: 0.5
+
+# The fear/greed sub-score is company-specific: a blend of the market-wide
+# CNN gauge and the stock's own greed composite (fear = buy signal).
+fng_mix:
+  market: 0.4
+  stock: 0.6
+
+# Per-stock greed composite, modeled on CNN's index (each part 0-100):
+# rsi = RSI(14) · momentum = price vs 125d MA · drawdown = distance from
+# 52w high · volatility = 20d vs 100d realized vol · volume = up-day share.
+stock_fng_weights:
+  rsi: 0.25
+  momentum: 0.25
+  drawdown: 0.20
+  volatility: 0.15
+  volume: 0.15
+
+# Label buckets (score >= threshold, checked top-down)
+buckets:
+  - { min: 75, label: STRONG BUY }
+  - { min: 60, label: ADD }
+  - { min: 40, label: HOLD }
+  - { min: 25, label: TRIM }
+  - { min: 0,  label: SELL }
+
+# Pipeline schedule (24h clock, Asia/Bangkok)
+schedule:
+  times: ["06:00", "18:00"]
+  timezone: Asia/Bangkok
+
+news:
+  items_per_ticker: 5
+  lookback_days: 7
+
+# "Today's brief" card: how the LLM ranks the most important news.
+news_brief:
+  max_items: 8
+  max_age_hours: 48        # only headlines this fresh are brief candidates
+  include_macro: true      # add US-market + SET-index feeds to the pool
+  weights:                  # ranking criteria, must sum to 100
+    actionability: 35       # stock is in STRONG BUY / SELL / TRIM today
+    impact: 25              # headline coincides with a real 1-day move
+    position: 20            # size of your holding in THB
+    severity: 20            # earnings/M&A/regulation > analyst note > PR
+
+# Drift normalization: a buy/sell amount of this THB size (per name)
+# saturates the drift sub-score at its max/min. Per book, since the
+# dividend book is much larger than the growth book.
+drift_saturation_thb:
+  growth: 250000
+  dividend: 1500000
+
+# Valuation: an under/over-valuation of this % saturates the value sub-score.
+value_saturation_pct: 40.0
+
+# Suggested action size shown with the label: fraction of the remaining THB
+# gap to target to act on now (STRONG BUY = close the whole gap, etc.).
+action_fractions:
+  STRONG BUY: 1.0
+  ADD: 0.5
+  HOLD: 0.0
+  TRIM: 0.5
+  SELL: 1.0

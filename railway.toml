@@ -1,0 +1,11 @@
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/health"
+restartPolicyType = "ON_FAILURE"
+
+# Attach a volume mounted at /data in the Railway dashboard and set:
+#   DB_PATH=/data/brief.db
+# so snapshots and the ticker cache survive redeploys.

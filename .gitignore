@@ -1,0 +1,10 @@
+.env
+.venv/
+data/
+site/
+dist/
+__pycache__/
+*.pyc
+# personal build notes — contains the sheet ID and strategy details
+BUILD_SPEC.md
+.DS_Store

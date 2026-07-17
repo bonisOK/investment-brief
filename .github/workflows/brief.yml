@@ -2,10 +2,12 @@ name: Investment Brief
 
 on:
   schedule:
-    # Offset from :00 — GitHub's shared scheduler is most congested on the
-    # hour, where runs are routinely delayed and occasionally dropped.
-    - cron: "30 22 * * *"  # 05:30 Asia/Bangkok (UTC+7, no DST)
-    - cron: "30 10 * * *"  # 17:30 Asia/Bangkok
+    # Fire ~90 min before the brief is actually read (06:00 / 18:00 Bangkok).
+    # GitHub's scheduler is best-effort and routinely late — the first run on
+    # this repo landed 83 min after its slot — so the lead time is the buffer.
+    # Minutes stay off :00, its most congested slot.
+    - cron: "30 21 * * *"  # 04:30 Asia/Bangkok (UTC+7, no DST) -> read at 06:00
+    - cron: "30 9 * * *"   # 16:30 Asia/Bangkok               -> read at 18:00
   workflow_dispatch: {}     # manual "Run workflow" button
 
 permissions:

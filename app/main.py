@@ -94,20 +94,13 @@ def _chart_data(rows: list[dict]) -> dict:
     # Movers: every stock with a price, best to worst.
     movers = sorted((r for r in rows if r.get("chg_1d") is not None),
                     key=lambda r: r["chg_1d"], reverse=True)
-    # Buys/sells: every STRONG BUY and every SELL (not a top-N).
-    buys = [r for r in rows if r["scores"]["label"] == "STRONG BUY"]
-    sells = sorted((r for r in rows if r["scores"]["label"] == "SELL"),
-                   key=lambda r: r["scores"]["composite"])
-
     def pack(items, value):
         return {"labels": [r["dr_code"] for r in items],
                 "values": [value(r) for r in items]}
 
-    return {
-        "movers": pack(movers, lambda r: r["chg_1d"]),
-        "buys": pack(buys, lambda r: r["scores"]["composite"]),
-        "sells": pack(sells, lambda r: r["scores"]["composite"]),
-    }
+    # STRONG BUY / SELL are no longer charted — the template renders them as
+    # HTML action lists so the ฿ amounts respond to the privacy toggle.
+    return {"movers": pack(movers, lambda r: r["chg_1d"])}
 
 
 @app.post("/run")

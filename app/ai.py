@@ -153,8 +153,15 @@ Macro headlines:
 {macro}
 
 Reply with ONLY a JSON object, no markdown fences:
-{{"summary": "<2-3 plain-English sentences: the day's theme for THIS portfolio>",
+{{"summary": ["<2-4 bullets, one short plain-English sentence each: the day's
+               theme for THIS portfolio. No bullet characters, just the text.>"],
   "items": [{{"id": "<headline ID>", "tickers": ["<DR codes affected, empty for macro>"],
+             "headline": "<max 12 words: the IMPLICATION for this portfolio,
+                          written as a headline. NOT the source's headline and
+                          not a restatement of it — say what it MEANS for the
+                          holder (e.g. 'Margin guidance cut puts the buy case
+                          on hold', not 'Acme reports Q3 earnings').>",
+             "implication": "bullish" | "bearish" | "neutral",
              "why": "<one sentence: why it matters to THIS portfolio>",
              "action": "<one short imperative sentence: what to DO about it today,
                         consistent with today_action_thb (e.g. 'Buy the planned
@@ -165,9 +172,23 @@ Reply with ONLY a JSON object, no markdown fences:
 At most {n} items, ranked most important first. English only."""
 
 
+def _summary_bullets(raw) -> list[str]:
+    """The summary renders as a bullet list. Gemini sometimes still returns one
+    paragraph (and snapshots saved before this was a list hold a plain string),
+    so split prose back into sentences rather than showing a wall of text."""
+    if isinstance(raw, str):
+        # Either a newline-separated list or one paragraph of sentences.
+        raw = [s for s in re.split(r"\n+|(?<=[.!?])\s+", raw) if s.strip()]
+    if not isinstance(raw, list):
+        return []
+    return [str(s).lstrip("-•* \t").strip()[:200] for s in raw if str(s).strip()][:5]
+
+
 def daily_brief(rows: list[dict], macro: list[dict]) -> dict | None:
-    """One Gemini call that picks the day's most important news.
-    Returns {summary, items:[{title, link, publisher, tickers, why, urgency}]}."""
+    """One Gemini call that picks the day's most important news. Returns
+    {summary: [bullet, ...],
+     items: [{headline, title, link, publisher, tickers, implication, why,
+              action, urgency}]}."""
     if not GEMINI_API_KEY:
         return None
     cfg = CFG["news_brief"]
@@ -211,16 +232,21 @@ def daily_brief(rows: list[dict], macro: list[dict]) -> dict | None:
             src = registry.get(str(it.get("id", "")))
             if not src:
                 continue
+            impl = it.get("implication")
             items.append({
+                # The card shows `headline` (the AI's implication); `title` is
+                # kept as the source's own wording for the link tooltip.
+                "headline": str(it.get("headline", "")).strip()[:140] or src["title"],
                 "title": src["title"],
                 "link": src["link"],
                 "publisher": src["publisher"],
                 "tickers": [str(t) for t in (it.get("tickers") or []) if t][:6],
+                "implication": impl if impl in ("bullish", "bearish", "neutral") else "neutral",
                 "why": str(it.get("why", ""))[:300],
                 "action": str(it.get("action", ""))[:250],
                 "urgency": it.get("urgency") if it.get("urgency") in ("act", "watch", "fyi") else "fyi",
             })
-        return {"summary": str(data.get("summary", ""))[:600], "items": items}
+        return {"summary": _summary_bullets(data.get("summary")), "items": items}
     except Exception as e:
         log.warning("Gemini daily_brief failed: %s", str(e)[:300])
         return None

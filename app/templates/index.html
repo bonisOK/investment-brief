@@ -16,8 +16,11 @@
     --grid: #e1e0d9;
     --baseline: #c3c2b7;
     --border: rgba(11,11,11,0.10);
-    --pos: #2a78d6;       /* diverging cool pole: gains / buy */
-    --neg: #e34948;       /* diverging warm pole: losses / sell */
+    /* Green/red separate poorly under red-green colour blindness (deutan ΔE
+       7.8 vs 21.6 for the blue this replaced), so the sign, the label text
+       and the ▲/▼ implication tag must always carry the meaning too. */
+    --pos: #006300;       /* diverging positive pole: gains / buy / bullish */
+    --neg: #e34948;       /* diverging negative pole: losses / sell / bearish */
     --good-text: #006300;
   }
   @media (prefers-color-scheme: dark) {
@@ -31,7 +34,7 @@
       --grid: #2c2c2a;
       --baseline: #383835;
       --border: rgba(255,255,255,0.10);
-      --pos: #3987e5;
+      --pos: #127a12;
       --neg: #e66767;
       --good-text: #0ca30c;
     }
@@ -52,20 +55,46 @@
 
   /* Today's brief */
   .briefcard { margin-bottom: 16px; }
-  .briefsum { margin: 0 0 12px; color: var(--text-primary); font-size: .92rem; }
+  .briefsum { margin: 0 0 12px; padding-left: 20px; color: var(--text-primary); font-size: .92rem; }
+  .briefsum li { margin-bottom: 5px; }
   .briefgroup { margin-top: 14px; }
   .briefgroup h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; margin: 0 0 8px; padding-bottom: 5px; border-bottom: 2px solid var(--grid); }
   .bg-act { color: var(--neg); border-bottom-color: color-mix(in srgb, var(--neg) 45%, transparent) !important; }
   .bg-watch { color: var(--text-secondary); }
   .bg-fyi { color: var(--muted); }
-  .newsitem { background: color-mix(in srgb, var(--text-primary) 3%, transparent); border: 1px solid var(--grid); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: .88rem; line-height: 1.5; }
+  .newsitem { background: color-mix(in srgb, var(--text-primary) 3%, transparent); border: 1px solid var(--grid); border-left: 3px solid var(--muted); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: .88rem; line-height: 1.5; }
   .newsitem a { color: var(--text-primary); text-decoration: none; font-weight: 600; }
   .newsitem a:hover { text-decoration: underline; }
+  /* Implication tint. The ▲/▼ tag repeats it in text — green/red alone is not
+     readable for red-green colour blindness (see the --pos note above). */
+  .newsitem.bullish { border-left-color: var(--pos); background: color-mix(in srgb, var(--pos) 7%, transparent); }
+  .newsitem.bearish { border-left-color: var(--neg); background: color-mix(in srgb, var(--neg) 7%, transparent); }
+  .impl { display: inline-block; font-size: .68rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; border-radius: 5px; padding: 1px 6px; margin-right: 6px; vertical-align: 1px; border: 1px solid var(--border); color: var(--text-secondary); }
+  .impl.bullish { color: var(--pos); border-color: color-mix(in srgb, var(--pos) 45%, transparent); }
+  .impl.bearish { color: var(--neg); border-color: color-mix(in srgb, var(--neg) 45%, transparent); }
   .actionbox { margin-top: 7px; border-left: 3px solid var(--pos); padding: 4px 10px; background: color-mix(in srgb, var(--pos) 6%, transparent); border-radius: 0 8px 8px 0; }
   .actline { font-weight: 600; font-size: .85rem; }
   .actdetail { font-size: .8rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
   .tkchip { display: inline-block; font-size: .7rem; font-weight: 700; color: var(--pos); border: 1px solid color-mix(in srgb, var(--pos) 40%, transparent); border-radius: 5px; padding: 1px 6px; margin-right: 6px; vertical-align: 1px; }
   .minilogo { width: 13px; height: 13px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
+
+  /* Action lists in the STRONG BUY / SELL cards. These are HTML rather than
+     canvas so the ฿ amounts are real text: the privacy toggle masks text
+     nodes, and anything painted into a chart would survive "Hide ฿". */
+  .actlist { list-style: none; margin: 0; padding: 0; }
+  .actlist li { border-bottom: 1px solid var(--grid); }
+  .actlist li:last-child { border-bottom: none; }
+  .al-row { display: flex; align-items: center; gap: 8px; padding: 7px 4px; text-decoration: none; color: var(--text-primary); border-radius: 6px; }
+  .al-row:hover { background: color-mix(in srgb, var(--text-primary) 5%, transparent); }
+  .al-row:hover .al-tick { text-decoration: underline; }
+  .al-tick { font-weight: 650; font-size: .85rem; white-space: nowrap; }
+  .al-amt { margin-left: auto; font-weight: 700; font-size: .9rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .al-amt.flat { color: var(--muted); font-weight: 400; font-size: .8rem; }
+  .al-score { color: var(--muted); font-size: .75rem; min-width: 20px; text-align: right; font-variant-numeric: tabular-nums; }
+  .al-none { color: var(--muted); font-size: .85rem; margin: 6px 0; }
+  /* Landing highlight after jumping from an action list. Neutral, because the
+     same flash is used for buys and sells. */
+  tr.mainrow.flash td { background: color-mix(in srgb, var(--text-primary) 14%, transparent) !important; }
 
   .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px; }
   .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
@@ -138,17 +167,25 @@
 {% if snap.brief and snap.brief['items'] %}
 <div class="card briefcard">
   <h2>📰 Today's brief</h2>
-  {% if snap.brief.summary %}<p class="briefsum">{{ snap.brief.summary }}</p>{% endif %}
+  {% if snap.brief.summary %}
+    {# Snapshots saved before the summary became a list still hold a string. #}
+    {% set bullets = [snap.brief.summary] if snap.brief.summary is string else snap.brief.summary %}
+    <ul class="briefsum">{% for b in bullets %}<li>{{ b }}</li>{% endfor %}</ul>
+  {% endif %}
   {% for gkey, gtitle in [('act', '🔴 ACT NOW'), ('watch', '🟡 WATCH'), ('fyi', '⚪ FYI')] %}
     {% set gitems = snap.brief['items'] | selectattr('urgency', 'equalto', gkey) | list %}
     {% if gitems %}
     <div class="briefgroup">
       <h3 class="bg-{{ gkey }}">{{ gtitle }} <span class="score">({{ gitems|length }})</span></h3>
       {% for it in gitems %}
-      <div class="newsitem">
+      {% set impl = it.implication | default('neutral', true) %}
+      <div class="newsitem {{ impl }}">
         <div>
           {% for t in it.tickers %}<span class="tkchip">{% if ticker_domains.get(t) %}<img class="minilogo" src="https://www.google.com/s2/favicons?domain={{ ticker_domains.get(t) }}&sz=32" loading="lazy" alt="" onerror="this.remove()">{% endif %}{{ t }}</span>{% endfor %}
-          <a href="{{ it.link }}" target="_blank" rel="noopener">{{ it.title }}</a>
+          <span class="impl {{ impl }}">{{ {'bullish': '▲ Bullish', 'bearish': '▼ Bearish'}.get(impl, '● Neutral') }}</span>
+          {# Link text is the AI's implication; the source's own headline is the
+             tooltip, so the wording is never mistaken for a real quote. #}
+          <a href="{{ it.link }}" target="_blank" rel="noopener" title="Source headline: {{ it.title }}">{{ it.headline | default(it.title, true) }}</a>
           <span class="src">{{ it.publisher }}</span>
         </div>
         <div class="why">{{ it.why }}</div>
@@ -156,7 +193,7 @@
         <div class="actionbox">
           {% if it.action %}<div class="actline">👉 {{ it.action }}</div>{% endif %}
           {% for a in it.actions or [] %}
-            <div class="actdetail">{{ a.code }} <span class="score">({{ a.book }})</span> — {{ a.label }}{% if a.act_thb %}: {{ 'buy' if a.act_thb > 0 else 'sell' }} ฿{{ "{:,.0f}".format(a.act_thb if a.act_thb > 0 else -a.act_thb) }}{% if a.act_price %} @ {{ '≤' if a.act_thb > 0 else '≥' }} {{ "{:,.2f}".format(a.act_price) }} {{ a.currency or '' }}{% endif %}{% endif %}</div>
+            <div class="actdetail">{{ a.code }} <span class="score">({{ a.book }})</span> — {{ a.label }}{% if a.act_thb %}: ฿{{ "{:,.0f}".format(a.act_thb if a.act_thb > 0 else -a.act_thb) }}{% endif %}</div>
           {% endfor %}
         </div>
         {% endif %}
@@ -168,14 +205,41 @@
 </div>
 {% endif %}
 
+{# Today's orders at a glance: ticker, THB to trade, score — each row jumps to
+   the stock's table row and opens it. Defined before use: Jinja macros are
+   only in scope after their definition. #}
+{% macro action_list(items) -%}
+  {%- if not items -%}
+    <p class="al-none">None today.</p>
+  {%- else -%}
+    <ul class="actlist">
+      {%- for r in items -%}
+        {%- set amt = r.scores.act_thb or 0 -%}
+        <li><a class="al-row" href="#row-{{ r.dr_code }}" data-code="{{ r.dr_code }}">
+          <span class="al-tick">{% if r.domain %}<img class="minilogo" src="https://www.google.com/s2/favicons?domain={{ r.domain }}&sz=32" loading="lazy" alt="" onerror="this.remove()">{% endif %}{{ r.dr_code }}</span>
+          <span class="al-amt {{ 'pos' if amt > 0 else 'neg' if amt < 0 else 'flat' }}">
+            {%- if amt -%}฿{{ "{:,.0f}".format(amt if amt > 0 else -amt) }}{%- else -%}no trade today{%- endif -%}
+          </span>
+          <span class="al-score">{{ r.scores.composite }}</span>
+        </a></li>
+      {%- endfor -%}
+    </ul>
+  {%- endif -%}
+{%- endmacro %}
+
+{% set _all = growth + dividend %}
+{% set buys = _all | selectattr('scores.label', 'equalto', 'STRONG BUY') | sort(attribute='scores.composite', reverse=true) | list %}
+{% set sells = _all | selectattr('scores.label', 'equalto', 'SELL') | sort(attribute='scores.composite') | list %}
+
 <div class="charts">
   <div class="card"><h2>Movers today <button class="expbtn" id="moversbtn" onclick="toggleMovers()">Show all</button></h2><div class="sub" id="movers-sub">top 5 up · top 5 down (1-day %)</div><div class="plot"><canvas id="movers"></canvas></div></div>
-  <div class="card"><h2>STRONG BUY</h2><div class="sub">every name scoring ≥75</div><div class="plot"><canvas id="buys"></canvas></div></div>
-  <div class="card"><h2>SELL</h2><div class="sub">every name scoring &lt;25</div><div class="plot"><canvas id="sells"></canvas></div></div>
+  <div class="card"><h2>STRONG BUY</h2><div class="sub">scoring ≥75 · buy ฿ today — click to open the row</div>{{ action_list(buys) }}</div>
+  <div class="card"><h2>SELL</h2><div class="sub">scoring &lt;25 · sell ฿ today — click to open the row</div>{{ action_list(sells) }}</div>
 </div>
 
 {# Diverging color scale: background tint scales with magnitude, capped at
-   `sat` percent move; blue = up, red = down, neutral at zero. #}
+   `sat` percent move; green = up, red = down, neutral at zero. The signed
+   number is always printed, so the tint is reinforcement, not the message. #}
 {% macro pct(v, sat=8) -%}
   {%- if v is none -%}<span class="score">–</span>
   {%- else -%}
@@ -196,11 +260,9 @@
   {%- set l = scores.label -%}
   <span class="lbl {{ 'buy' if 'BUY' in l or l == 'ADD' else ('sell' if l in ('SELL','TRIM') else 'hold') }}">{{ l }}</span>
   <div class="score">{{ scores.composite }}</div>
+  {#- Direction comes from the label chip above, so the amount is unsigned. -#}
   {%- if scores.act_thb -%}
-    <div class="act {{ 'pos' if scores.act_thb > 0 else 'neg' }}">Today: {{ 'buy' if scores.act_thb > 0 else 'sell' }} ฿{{ "{:,.0f}".format(scores.act_thb if scores.act_thb > 0 else -scores.act_thb) }}</div>
-    {%- if scores.act_price -%}
-      <div class="score">@ {{ '≤' if scores.act_thb > 0 else '≥' }} {{ "{:,.2f}".format(scores.act_price) }} {{ currency or '' }}</div>
-    {%- endif -%}
+    <div class="act {{ 'pos' if scores.act_thb > 0 else 'neg' }}">Today: ฿{{ "{:,.0f}".format(scores.act_thb if scores.act_thb > 0 else -scores.act_thb) }}</div>
   {%- endif -%}
   {%- if scores.act_reason -%}
     <div class="why">{{ scores.act_reason }}</div>
@@ -246,7 +308,7 @@
     </tr></thead>
     <tbody>
     {% for r in growth %}
-      <tr class="mainrow" onclick="toggle(this)">
+      <tr class="mainrow" id="row-{{ r.dr_code }}" onclick="toggle(this)">
         <td class="tick">{% if r.domain %}<img class="logo" src="https://www.google.com/s2/favicons?domain={{ r.domain }}&sz=64" loading="lazy" alt="" onerror="this.remove()">{% endif %}{{ r.dr_code }}<br><span class="real">{{ r.real_ticker }}</span></td>
         <td class="co">{{ r.company_name }}</td>
         <td>{{ label_chip(r.scores, r.currency) }}</td>
@@ -274,7 +336,7 @@
     </tr></thead>
     <tbody>
     {% for r in dividend %}
-      <tr class="mainrow" onclick="toggle(this)">
+      <tr class="mainrow" id="row-{{ r.dr_code }}" onclick="toggle(this)">
         <td class="tick">{% if r.domain %}<img class="logo" src="https://www.google.com/s2/favicons?domain={{ r.domain }}&sz=64" loading="lazy" alt="" onerror="this.remove()">{% endif %}{{ r.dr_code }}<br><span class="real">{{ r.real_ticker }} · {{ r.section }}</span></td>
         <td class="co">{{ r.company_name }}</td>
         <td>{{ label_chip(r.scores, r.currency) }}</td>
@@ -394,8 +456,20 @@ function toggleMovers() {
   renderMovers();
 }
 renderMovers();
-hbar('buys', DATA.buys.labels, DATA.buys.values, () => C.pos, 'composite score', 0, 100);
-hbar('sells', DATA.sells.labels, DATA.sells.values, () => C.neg, 'composite score', 0, 100);
+
+// STRONG BUY / SELL card -> the stock's own row: open it, scroll to it, flash it.
+function jumpTo(code) {
+  const row = document.getElementById('row-' + code);
+  if (!row) return;
+  const detail = row.nextElementSibling;
+  if (detail && detail.classList.contains('detail')) detail.classList.add('open');
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  row.classList.add('flash');
+  setTimeout(() => row.classList.remove('flash'), 1600);
+}
+document.querySelectorAll('.al-row').forEach(a => {
+  a.addEventListener('click', e => { e.preventDefault(); jumpTo(a.dataset.code); });
+});
 </script>
 </body>
 </html>

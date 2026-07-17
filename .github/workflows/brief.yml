@@ -53,6 +53,9 @@ jobs:
             --template-title "Investment Brief" \
             --remember 30 \
             -p "${{ secrets.PAGE_PASSWORD }}"
+          # Under 14 chars StatiCrypt prompts for confirmation; with no TTY it
+          # aborts, writes nothing, and still exits 0. Fail here, not at upload.
+          test -f ../dist/index.html
 
       - uses: actions/upload-pages-artifact@v3
         with:

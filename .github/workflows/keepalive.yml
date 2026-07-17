@@ -1,0 +1,35 @@
+name: Keepalive
+
+# GitHub disables scheduled workflows after 60 days of repository inactivity,
+# which would silently stop brief.yml from refreshing the published page.
+# Workflow runs do not count as activity — only commits do. This pushes an
+# empty commit when the repo has been quiet long enough to be at risk.
+
+on:
+  schedule:
+    - cron: "13 4 1 * *"   # 11:13 Asia/Bangkok, 1st of each month
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Push an empty commit if the repo has gone quiet
+        run: |
+          set -euo pipefail
+          last=$(git log -1 --format=%ct)
+          days=$(( ( $(date +%s) - last ) / 86400 ))
+          echo "Days since last commit: $days"
+          if [ "$days" -lt 45 ]; then
+            echo "Recent activity — the 60-day timer is not at risk. Nothing to do."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: keepalive — reset the 60-day scheduled-workflow timer"
+          git push

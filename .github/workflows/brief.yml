@@ -2,8 +2,10 @@ name: Investment Brief
 
 on:
   schedule:
-    - cron: "0 23 * * *"   # 06:00 Asia/Bangkok
-    - cron: "0 11 * * *"   # 18:00 Asia/Bangkok
+    # Offset from :00 — GitHub's shared scheduler is most congested on the
+    # hour, where runs are routinely delayed and occasionally dropped.
+    - cron: "7 23 * * *"   # 06:07 Asia/Bangkok
+    - cron: "7 11 * * *"   # 18:07 Asia/Bangkok
   workflow_dispatch: {}     # manual "Run workflow" button
 
 permissions:

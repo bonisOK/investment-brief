@@ -48,16 +48,19 @@ jobs:
           APPS_SCRIPT_URL: ${{ secrets.APPS_SCRIPT_URL }}
         run: python -m app.render_static
 
+      # Run from the repo root so StatiCrypt picks up ./.staticrypt.json. That
+      # file pins the salt: "remember me" stores a salted hash in localStorage,
+      # so a fresh random salt each build silently logs everyone out on every
+      # run. The salt is not a secret — it ships in the published HTML.
       - name: Encrypt page (StatiCrypt)
         run: |
-          cd site
-          npx -y staticrypt index.html -d ../dist \
+          npx -y staticrypt site/index.html -d dist \
             --template-title "Investment Brief" \
-            --remember 30 \
+            --remember 365 \
             -p "${{ secrets.PAGE_PASSWORD }}"
           # Under 14 chars StatiCrypt prompts for confirmation; with no TTY it
           # aborts, writes nothing, and still exits 0. Fail here, not at upload.
-          test -f ../dist/index.html
+          test -f dist/index.html
 
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -4,8 +4,8 @@ on:
   schedule:
     # Offset from :00 — GitHub's shared scheduler is most congested on the
     # hour, where runs are routinely delayed and occasionally dropped.
-    - cron: "7 23 * * *"   # 06:07 Asia/Bangkok
-    - cron: "7 11 * * *"   # 18:07 Asia/Bangkok
+    - cron: "30 22 * * *"  # 05:30 Asia/Bangkok (UTC+7, no DST)
+    - cron: "30 10 * * *"  # 17:30 Asia/Bangkok
   workflow_dispatch: {}     # manual "Run workflow" button
 
 permissions:

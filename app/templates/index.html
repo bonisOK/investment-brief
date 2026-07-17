@@ -40,6 +40,11 @@
     }
   }
   * { box-sizing: border-box; }
+  /* The book tables are min-width:720px, so on a phone they are far wider than
+     the viewport and iOS Safari "helpfully" inflates their text ~2.5x. 100%
+     pins text to its declared size; `none` would do it too but also blocks
+     pinch-zoom, so it is not used. */
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   body {
     margin: 0; background: var(--page); color: var(--text-primary);
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -131,6 +136,13 @@
   tr.detail { display: none; }
   tr.detail.open { display: table-row; }
   tr.detail > td { background: color-mix(in srgb, var(--text-primary) 3%, transparent); padding: 14px 16px; }
+  /* The expanded card spans a 720px-wide table, so on a phone its text would
+     scroll off to the right with the columns. Pin it to the viewport instead:
+     sticky keeps it at the scroll container's left edge, and the width stops
+     it inheriting the table's. */
+  @media (max-width: 760px) {
+    tr.detail > td > .newscard { position: sticky; left: 0; width: calc(100vw - 36px); }
+  }
   .newscard h4 { margin: 0 0 4px; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
   .newscard p { margin: 0 0 10px; color: var(--text-primary); }
   .subs { display: flex; flex-wrap: wrap; gap: 14px; color: var(--text-secondary); font-size: .8rem; margin-bottom: 10px; }

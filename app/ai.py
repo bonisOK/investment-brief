@@ -138,6 +138,10 @@ Rank candidates by this weighting:
 Hard rules: merge duplicates (one story affecting several stocks = ONE item
 listing all affected tickers). Drop listicles, "stocks to watch" fluff and
 pure PR. Macro items (M*) qualify when they move the whole portfolio.
+Voice: report the NEWS and what it means for the company. Never tell the
+owner to buy, sell, trim or add, and never print a money amount in any text
+field — the order sizes are shown separately. Do not reference the owner's
+own planned tranche/buy/sell/trim.
 Freshness rules: every headline is tagged with its age. Prefer items under
 24h. Items older than 24h must never be "act". Drop retrospectives,
 anniversary pieces and anything reporting an event that is not from the
@@ -163,11 +167,13 @@ Reply with ONLY a JSON object, no markdown fences:
                           on hold', not 'Acme reports Q3 earnings').>",
              "implication": "bullish" | "bearish" | "neutral",
              "why": "<one sentence: why it matters to THIS portfolio>",
-             "action": "<one short imperative sentence: what to DO about it today,
-                        consistent with today_action_thb (e.g. 'Buy the planned
-                        tranche on this dip', 'Pause buying until guidance call',
-                        'No trade — reassess if it breaks 60'); never invent
-                        amounts that contradict the portfolio table>",
+             "action": "<one plain sentence — the SO-WHAT for the holder: is this
+                        good or bad for the position, and why. Start with 'Good for
+                        <TICKER>', 'Bad for <TICKER>' or 'Neutral for <TICKER>'.
+                        Describe the takeaway; do NOT tell them to buy/sell/trim and
+                        do NOT mention any amount (e.g. 'Good for CPAXT — the store
+                        revamp defends margins and supports the long-term thesis',
+                        'Bad for BAFS — the guidance cut genuinely weakens the case')>",
              "urgency": "act" | "watch" | "fyi"}}]}}
 At most {n} items, ranked most important first. English only."""
 

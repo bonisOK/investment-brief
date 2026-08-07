@@ -377,8 +377,10 @@ function toggle(tr) {
   if (d && d.classList.contains('detail')) d.classList.toggle('open');
 }
 
-/* Privacy mode: mask every THB amount tied to portfolio size. */
-const THB_RE = /฿\s?[\d,]+(?:\.\d+)?/g;
+/* Privacy mode: mask every money amount tied to portfolio size. Covers the ฿
+   symbol AND spelled-out currencies the AI uses in prose (THB/USD/$/€), so an
+   amount like "THB 261,400" in an action line is hidden too. */
+const THB_RE = /(฿|THB|US\$|USD|€|EUR|\$)\s?[\d,]+(?:\.\d+)?/gi;
 function applyPrivacy(on) {
   // 1. Bare-number drift cells (marked with .thb)
   document.querySelectorAll('.thb').forEach(el => {
@@ -390,7 +392,7 @@ function applyPrivacy(on) {
   let n;
   while ((n = walker.nextNode())) {
     if (on) {
-      if (THB_RE.test(n.nodeValue)) { n._orig = n.nodeValue; n.nodeValue = n.nodeValue.replace(THB_RE, '฿****'); }
+      if (THB_RE.test(n.nodeValue)) { n._orig = n.nodeValue; n.nodeValue = n.nodeValue.replace(THB_RE, (_, cur) => cur + '****'); }
       THB_RE.lastIndex = 0;
     } else if (n._orig) { n.nodeValue = n._orig; delete n._orig; }
   }

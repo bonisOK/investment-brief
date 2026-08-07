@@ -11,3 +11,5 @@ overrides:
   FERRARI: RACE
   LOREAL: OR.PA       # search mis-resolves to a Canadian CDR
   HERMES: RMS.PA      # search mis-resolves to Federated Hermes (FHI)
+  PNG: PG             # Procter & Gamble; search mis-resolves to Kraken Robotics (PNG.V)
+  SYM: SYM            # Symbotic; pin so search can't drift

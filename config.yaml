@@ -71,3 +71,8 @@ action_fractions:
   HOLD: 0.0
   TRIM: 0.5
   SELL: 1.0
+
+# Calendar card: how far back / ahead events are kept and shown.
+calendar:
+  past_days: 120
+  future_days: 150

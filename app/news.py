@@ -9,6 +9,7 @@ name — because Thai financial media usually writes the ticker.
 """
 import calendar
 import logging
+import re
 import time
 from urllib.parse import quote
 
@@ -88,10 +89,17 @@ def fetch_news(company_name: str, is_thai: bool = False, symbol: str | None = No
     return _dedupe(_fresh_sorted(items, lookback * 24))[:n]
 
 
+def title_key(title: str) -> str:
+    """Normalized story key: Google News titles end in " - Publisher", and the
+    same wire story reappears with different casing/punctuation."""
+    t = re.sub(r"\s+-\s+[^-]{2,60}$", "", title or "")
+    return re.sub(r"[\W_]+", " ", t.lower()).strip()
+
+
 def _dedupe(items: list[dict]) -> list[dict]:
     seen, unique = set(), []
     for it in items:
-        key = it["title"].lower()
+        key = title_key(it["title"])
         if key and key not in seen:
             seen.add(key)
             unique.append(it)

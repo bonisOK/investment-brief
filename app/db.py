@@ -1,4 +1,5 @@
-"""SQLite persistence: run snapshots + ticker resolution cache."""
+"""SQLite persistence: run snapshots, ticker resolution cache, calendar events
+and the log of news already shown in the brief."""
 import json
 import os
 import sqlite3
@@ -20,6 +21,23 @@ CREATE TABLE IF NOT EXISTS ticker_map (
     company_name TEXT,
     exchange TEXT,
     resolved_at TEXT
+);
+-- Calendar: earnings, Thai XD / pay dates and very important news. Kept
+-- across runs (the Actions cache carries the DB) so past months stay filled.
+CREATE TABLE IF NOT EXISTS events (
+    id TEXT PRIMARY KEY,
+    date TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    code TEXT,
+    data TEXT NOT NULL,
+    updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS events_date ON events(date);
+-- Stories the brief already showed, so the next run doesn't repeat them.
+CREATE TABLE IF NOT EXISTS shown_news (
+    key TEXT PRIMARY KEY,
+    headline TEXT,
+    shown_at TEXT NOT NULL
 );
 """
 
@@ -77,3 +95,56 @@ def cache_ticker(dr_code: str, real_ticker: str, company_name: str, exchange: st
             (dr_code.upper(), real_ticker, company_name, exchange,
              datetime.now(timezone.utc).isoformat()),
         )
+
+
+def upsert_events(events: list[dict], path: str = DB_PATH) -> None:
+    """Insert or merge by id. A later run's non-null fields win; nulls never
+    erase (an XD seen early with its pay date keeps it once the amount lands)."""
+    now = datetime.now(timezone.utc).isoformat()
+    with _conn(path) as c:
+        for e in events:
+            row = c.execute("SELECT data FROM events WHERE id=?", (e["id"],)).fetchone()
+            merged = json.loads(row["data"]) if row else {}
+            merged.update({k: v for k, v in e.items() if v is not None})
+            c.execute("INSERT OR REPLACE INTO events VALUES (?,?,?,?,?,?)",
+                      (merged["id"], merged["date"], merged["kind"], merged.get("code"),
+                       json.dumps(merged, ensure_ascii=False), now))
+
+
+def events_between(start: str, end: str, path: str = DB_PATH) -> list[dict]:
+    """Events with start <= date <= end (YYYY-MM-DD), oldest first."""
+    with _conn(path) as c:
+        rows = c.execute("SELECT data FROM events WHERE date BETWEEN ? AND ? "
+                         "ORDER BY date, id", (start, end)).fetchall()
+        return [json.loads(r["data"]) for r in rows]
+
+
+def prune_upcoming(kind: str, code: str, today: str, keep_ids: set[str],
+                   path: str = DB_PATH) -> None:
+    """Drop future `kind` events for `code` the latest fetch no longer lists
+    (a rescheduled earnings date would otherwise show on both days)."""
+    with _conn(path) as c:
+        rows = c.execute("SELECT id FROM events WHERE kind=? AND code=? AND date>=?",
+                         (kind, code, today)).fetchall()
+        stale = [r["id"] for r in rows if r["id"] not in keep_ids]
+        c.executemany("DELETE FROM events WHERE id=?", [(i,) for i in stale])
+
+
+def mark_shown(items: list[dict], shown_at: str, path: str = DB_PATH) -> None:
+    """Remember brief items ({key, headline}); first sighting keeps its time."""
+    with _conn(path) as c:
+        c.executemany("INSERT OR IGNORE INTO shown_news VALUES (?,?,?)",
+                      [(i["key"], i.get("headline", ""), shown_at) for i in items])
+
+
+def shown_keys(path: str = DB_PATH) -> set[str]:
+    with _conn(path) as c:
+        return {r["key"] for r in c.execute("SELECT key FROM shown_news")}
+
+
+def recent_shown(since: str, path: str = DB_PATH) -> list[str]:
+    """Headlines shown at or after `since` (ISO time), newest first."""
+    with _conn(path) as c:
+        rows = c.execute("SELECT headline FROM shown_news WHERE shown_at >= ? "
+                         "ORDER BY shown_at DESC", (since,)).fetchall()
+        return [r["headline"] for r in rows if r["headline"]]

@@ -83,7 +83,18 @@ def _pct_change(closes, trading_days: int) -> float | None:
     return round((closes.iloc[-1] - prev) / prev * 100, 2)
 
 
-def fetch_prices(ticker: str) -> dict:
+def history(t):
+    """1y daily history: the fear/greed composite needs the 125d MA and 52w
+    high, and the calendar uses it for earnings-day reactions."""
+    try:
+        return t.history(period="1y", auto_adjust=True)
+    except Exception as e:
+        log.warning("history failed for %s: %s", t.ticker, e)
+        return None
+
+
+def fetch_prices(ticker: str, t=None, hist=None) -> dict:
+    """Pass `t` / `hist` to reuse a yf.Ticker and its history already fetched."""
     out = {
         "price": None, "currency": None,
         "chg_1d": None, "chg_1w": None, "chg_1m": None,
@@ -93,10 +104,10 @@ def fetch_prices(ticker: str) -> dict:
         "stock_greed": None, "fng_parts": {},
         "domain": None,
     }
-    t = yf.Ticker(ticker)
+    t = t or yf.Ticker(ticker)
+    if hist is None:
+        hist = history(t)
     try:
-        # 1y history: the fear/greed composite needs the 125d MA and 52w high.
-        hist = t.history(period="1y", auto_adjust=True)
         closes = hist["Close"].dropna()
         if len(closes):
             out["price"] = round(float(closes.iloc[-1]), 4)

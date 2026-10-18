@@ -12,7 +12,7 @@ import re
 import time
 
 from .config import CFG, GEMINI_API_KEY
-from .news import age_label
+from .news import age_label, title_key
 
 log = logging.getLogger(__name__)
 MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
@@ -146,6 +146,18 @@ Freshness rules: every headline is tagged with its age. Prefer items under
 24h. Items older than 24h must never be "act". Drop retrospectives,
 anniversary pieces and anything reporting an event that is not from the
 last two days.
+No repeats: the owner already saw the stories listed under "Already shown".
+Do not pick the same story again, even under a different headline or from
+another publisher. Only pick it if there is a materially NEW development
+(e.g. a fine that was announced is now appealed), and then say what is new.
+Calendar flag — a VERY strict bar. "calendar": true ONLY for events that
+change the investment story: an earnings surprise or a guidance change, M&A
+(announced, agreed or blocked), a major fine, lawsuit or regulatory action,
+a CEO or chair exit, a serious hack or outage, or a 1-day move of 5%+ with a
+clear cause. For macro items only: a surprise central-bank decision, a major
+policy or tariff shock, or the S&P 500 / SET moving 3%+ in a day. Analyst
+notes, product launches, previews and opinion are always false. Expect 0-3
+per run; when unsure, false.
 
 Portfolio (KEY | company | position_thb | label | today_action_thb | 1d%):
 {stocks}
@@ -156,10 +168,11 @@ Stock headlines (each starts with its ID):
 Macro headlines:
 {macro}
 
+Already shown (do not repeat):
+{shown}
+
 Reply with ONLY a JSON object, no markdown fences:
-{{"summary": ["<2-4 bullets, one short plain-English sentence each: the day's
-               theme for THIS portfolio. No bullet characters, just the text.>"],
-  "items": [{{"id": "<headline ID>", "tickers": ["<DR codes affected, empty for macro>"],
+{{"items": [{{"id": "<headline ID>", "tickers": ["<DR codes affected, empty for macro>"],
              "headline": "<max 12 words: the IMPLICATION for this portfolio,
                           written as a headline. NOT the source's headline and
                           not a restatement of it — say what it MEANS for the
@@ -174,29 +187,30 @@ Reply with ONLY a JSON object, no markdown fences:
                         do NOT mention any amount (e.g. 'Good for CPAXT — the store
                         revamp defends margins and supports the long-term thesis',
                         'Bad for BAFS — the guidance cut genuinely weakens the case')>",
-             "urgency": "act" | "watch" | "fyi"}}]}}
+             "urgency": "act" | "watch" | "fyi",
+             "calendar": true | false,
+             "tag": "earnings" | "guidance" | "mna" | "legal" | "leadership" |
+                    "security" | "move" | "policy" | "other",
+             "market": "us" | "set" | null  (macro items only: which market)}}]}}
 At most {n} items, ranked most important first. English only."""
 
 
-def _summary_bullets(raw) -> list[str]:
-    """The summary renders as a bullet list. Gemini sometimes still returns one
-    paragraph (and snapshots saved before this was a list hold a plain string),
-    so split prose back into sentences rather than showing a wall of text."""
-    if isinstance(raw, str):
-        # Either a newline-separated list or one paragraph of sentences.
-        raw = [s for s in re.split(r"\n+|(?<=[.!?])\s+", raw) if s.strip()]
-    if not isinstance(raw, list):
-        return []
-    return [str(s).lstrip("-•* \t").strip()[:200] for s in raw if str(s).strip()][:5]
+TAGS = {"earnings", "guidance", "mna", "legal", "leadership", "security",
+        "move", "policy", "other"}
+_THAI = re.compile(r"[\u0E00-\u0E7F]")
 
 
-def daily_brief(rows: list[dict], macro: list[dict]) -> dict | None:
-    """One Gemini call that picks the day's most important news. Returns
-    {summary: [bullet, ...],
-     items: [{headline, title, link, publisher, tickers, implication, why,
-              action, urgency}]}."""
+def daily_brief(rows: list[dict], macro: list[dict], seen_keys: set[str] | None = None,
+                recent: list[str] | None = None) -> dict | None:
+    """One Gemini call that picks the day's most important news. Headlines
+    whose story key is in `seen_keys` were shown by an earlier brief and are
+    dropped; `recent` (earlier briefs' headlines) is listed so the model also
+    skips the same story told by another outlet. Returns
+    {items: [{headline, title, link, publisher, tickers, implication, why,
+              action, urgency, calendar, tag, scope, age_h, key}]}."""
     if not GEMINI_API_KEY:
         return None
+    seen_keys = seen_keys or set()
     cfg = CFG["news_brief"]
     registry: dict[str, dict] = {}
     stock_lines, head_lines = [], []
@@ -204,7 +218,8 @@ def daily_brief(rows: list[dict], macro: list[dict]) -> dict | None:
     max_age = cfg.get("max_age_hours", 48)
     for r in rows:
         fresh = [h for h in r.get("news", [])
-                 if h.get("age_h") is not None and h["age_h"] <= max_age]
+                 if h.get("age_h") is not None and h["age_h"] <= max_age
+                 and title_key(h["title"]) not in seen_keys]
         if not fresh:
             continue
         pos = r.get("current_value") or r.get("bought") or 0
@@ -219,16 +234,20 @@ def daily_brief(rows: list[dict], macro: list[dict]) -> dict | None:
             head_lines.append(f"{key} [{r['dr_code']}] [{age_label(h.get('age_h'))}] "
                               f"{h['title']} ({h['publisher']})")
     macro_lines = []
+    macro = [h for h in macro if title_key(h["title"]) not in seen_keys]
     for i, h in enumerate(macro, 1):
         key = f"M{i}"
         registry[key] = {**h, "ticker": None}
         macro_lines.append(f"{key} [{age_label(h.get('age_h'))}] {h['title']} ({h['publisher']})")
 
+    if not head_lines and not macro_lines:
+        return {"items": []}  # nothing new since the last brief: save the quota
     prompt = BRIEF_PROMPT.format(
         w=cfg["weights"], n=cfg["max_items"],
         stocks="\n".join(stock_lines),
         headlines="\n".join(head_lines),
         macro="\n".join(macro_lines) or "(none)",
+        shown="\n".join(f"- {h}" for h in (recent or [])[:40]) or "(none)",
     )
     try:
         time.sleep(CALL_GAP_S)
@@ -251,11 +270,25 @@ def daily_brief(rows: list[dict], macro: list[dict]) -> dict | None:
                 "why": str(it.get("why", ""))[:300],
                 "action": str(it.get("action", ""))[:250],
                 "urgency": it.get("urgency") if it.get("urgency") in ("act", "watch", "fyi") else "fyi",
+                "calendar": it.get("calendar") is True,
+                "tag": it.get("tag") if it.get("tag") in TAGS else "other",
+                "scope": _scope(it, src),
+                "age_h": src.get("age_h"),
+                "key": title_key(src["title"]),
             })
-        return {"summary": _summary_bullets(data.get("summary")), "items": items}
+        return {"items": items}
     except Exception as e:
         log.warning("Gemini daily_brief failed: %s", str(e)[:300])
         return None
+
+
+def _scope(item: dict, src: dict) -> str:
+    """"stock" for company news; for macro items the market it is about."""
+    if src.get("ticker"):
+        return "stock"
+    if item.get("market") in ("us", "set"):
+        return item["market"]
+    return "set" if _THAI.search(src.get("title", "")) else "us"
 
 
 AMOUNTS_PROMPT = """You are sizing orders for a personal portfolio (currency: THB).

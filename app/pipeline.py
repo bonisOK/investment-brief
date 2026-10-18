@@ -2,12 +2,13 @@
 then batched AI analysis -> score -> LLM order sizing -> save."""
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import requests
+import yfinance as yf
 
-from . import ai, db, news, prices, resolver, scoring, sentiment, sheets
+from . import ai, calendar_data, db, news, prices, resolver, scoring, sentiment, sheets
 from .config import APPS_SCRIPT_URL, CFG
 
 log = logging.getLogger(__name__)
@@ -43,6 +44,13 @@ def run_pipeline() -> dict:
         except Exception as e:
             log.exception("failed on %s: %s", row["dr_code"], e)
 
+    # Calendar events ride along on each row; take them off before saving.
+    now = datetime.now(BKK)
+    events, fresh = [], {}
+    for r in results:
+        events += r.pop("_events", [])
+        fresh[r["dr_code"]] = r.pop("_fresh", set())
+
     # Phase 2: batched AI analysis (a handful of Gemini calls, not one per name).
     analyses = ai.analyze_batch(results)
     for r in results:
@@ -68,15 +76,22 @@ def run_pipeline() -> dict:
         r["scores"]["act_reason"] = (d or {}).get("reason") or scoring.reason_for(r)
 
     # Phase 4: "today's brief" — one call ranking the most important news.
+    # Stories an earlier brief already showed are left out, so each brief is
+    # only what's new; the big ones stay findable on the calendar.
     macro = news.fetch_macro_news() if CFG["news_brief"]["include_macro"] else []
-    brief = ai.daily_brief(results, macro)
+    brief = ai.daily_brief(results, macro, seen_keys=db.shown_keys(),
+                           recent=db.recent_shown((now - timedelta(days=3)).isoformat()))
     if brief:
         _attach_brief_actions(brief, results)
+        db.mark_shown([{"key": it["key"], "headline": it["headline"]}
+                       for it in brief["items"] if it.get("key")], now.isoformat())
+        events += calendar_data.news_events(brief["items"], now)
+    _save_events(events, fresh, now.date().isoformat())
 
     payload = {
         "brief": brief,
-        "run_at": datetime.now(BKK).isoformat(),
-        "run_at_display": datetime.now(BKK).strftime("%d %b %Y %H:%M"),
+        "run_at": now.isoformat(),
+        "run_at_display": now.strftime("%d %b %Y %H:%M"),
         "fng": fng,
         "rows": results,
         "duration_s": round(time.time() - started, 1),
@@ -85,6 +100,17 @@ def run_pipeline() -> dict:
     log.info("pipeline done: run %s, %d names, %.0fs", run_id, len(results),
              payload["duration_s"])
     return payload
+
+
+def _save_events(events: list[dict], fresh: dict[str, set], today: str) -> None:
+    """Store calendar events; for each stock whose earnings / dividend dates
+    were really fetched, drop future dates Yahoo no longer lists."""
+    db.upsert_events(events)
+    for code, kinds in fresh.items():
+        for kind in kinds:
+            keep = {e["id"] for e in events if e["code"] == code and e["kind"] == kind}
+            db.prune_upcoming(kind, code, today, keep)
+    log.info("calendar: %d events stored", len(events))
 
 
 def _attach_brief_actions(brief: dict, results: list[dict]) -> None:
@@ -131,11 +157,15 @@ def _process(row: dict) -> dict:
     ticker, company = ident["real_ticker"], ident["company_name"]
     log.info("processing %s -> %s (%s)", row["dr_code"], ticker, company)
 
-    px = prices.fetch_prices(ticker)
+    t = yf.Ticker(ticker)
+    hist = prices.history(t)
+    px = prices.fetch_prices(ticker, t=t, hist=hist)
     val = valuation_safe(ticker, px)
     headlines = news.fetch_news(company, is_thai=row.get("is_thai", False),
                                 symbol=row["dr_code"] if row.get("is_thai") else None)
-    return {**row, **ident, **px, **val, "news": headlines}
+    events, fresh = calendar_data.collect(row, t, hist, datetime.now(BKK).date())
+    return {**row, **ident, **px, **val, "news": headlines,
+            "_events": events, "_fresh": fresh}
 
 
 def valuation_safe(ticker: str, px: dict) -> dict:

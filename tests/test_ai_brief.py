@@ -59,3 +59,11 @@ def test_macro_items_get_a_market_scope(monkeypatch):
              {"title": "ตลาดหุ้นไทยร่วง", "link": "b", "publisher": "T", "age_h": 3}]
     out = ai.daily_brief([], macro)
     assert [i["scope"] for i in out["items"]] == ["us", "set"]
+
+
+def test_headline_rule_is_who_what_so_what(monkeypatch):
+    prompts = setup(monkeypatch, {"items": []})
+    ai.daily_brief([row("MU", ["Micron guidance cut"])], [])
+    (p,) = prompts
+    assert "WHO did WHAT, so WHAT" in p
+    assert "Good for CPAXT —" not in p  # examples must not teach em-dashes

@@ -173,18 +173,23 @@ Already shown (do not repeat):
 
 Reply with ONLY a JSON object, no markdown fences:
 {{"items": [{{"id": "<headline ID>", "tickers": ["<DR codes affected, empty for macro>"],
-             "headline": "<max 12 words: the IMPLICATION for this portfolio,
-                          written as a headline. NOT the source's headline and
-                          not a restatement of it — say what it MEANS for the
-                          holder (e.g. 'Margin guidance cut puts the buy case
-                          on hold', not 'Acme reports Q3 earnings').>",
+             "headline": "<one plain sentence, max 16 words, in the shape
+                          WHO did WHAT, so WHAT. WHO = the company (short name)
+                          or market. WHAT = the event in simple words. SO WHAT =
+                          what it means for this holder. Everyday words, no
+                          jargon, no dashes. Examples: 'Micron cut its sales
+                          forecast, so memory profits may shrink this year.',
+                          'The EU fined Alibaba 550 million euros, so its Europe
+                          growth slows.', 'The Fed raised rates by surprise, so
+                          growth stocks may stay under pressure.' Not the
+                          source's headline.>",
              "implication": "bullish" | "bearish" | "neutral",
              "why": "<one sentence: why it matters to THIS portfolio>",
-             "action": "<one plain sentence — the SO-WHAT for the holder: is this
+             "action": "<one plain sentence, the SO-WHAT for the holder: is this
                         good or bad for the position, and why. Start with 'Good for
                         <TICKER>', 'Bad for <TICKER>' or 'Neutral for <TICKER>'.
                         Describe the takeaway; do NOT tell them to buy/sell/trim and
-                        do NOT mention any amount (e.g. 'Good for CPAXT — the store
+                        do NOT mention any amount (e.g. 'Good for CPAXT: the store
                         revamp defends margins and supports the long-term thesis',
                         'Bad for BAFS — the guidance cut genuinely weakens the case')>",
              "urgency": "act" | "watch" | "fyi",

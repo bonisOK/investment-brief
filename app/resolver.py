@@ -52,13 +52,15 @@ def _name_of(q: dict) -> str:
 def resolve(dr_code: str, thai: bool = False) -> dict:
     """Return {dr_code, real_ticker, company_name, exchange}; cached after first lookup."""
     dr_code = dr_code.strip().upper()
-    cached = db.get_cached_ticker(dr_code)
-    if cached:
-        return {"dr_code": dr_code, "real_ticker": cached["real_ticker"],
-                "company_name": cached["company_name"], "exchange": cached["exchange"]}
-
     base = strip_dr(dr_code)
     override = OVERRIDES.get(dr_code) or OVERRIDES.get(base)
+
+    # An override beats the cache: a row cached before the override was added
+    # (e.g. on the GitHub Actions DB) would otherwise keep the wrong ticker.
+    cached = db.get_cached_ticker(dr_code)
+    if cached and (not override or cached["real_ticker"].upper() == override.upper()):
+        return {"dr_code": dr_code, "real_ticker": cached["real_ticker"],
+                "company_name": cached["company_name"], "exchange": cached["exchange"]}
 
     if override:
         symbol = override

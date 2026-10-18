@@ -55,8 +55,8 @@ targets (yfinance) and news sentiment is neutral with headline-only cards.
 Everything tunable lives in `config.yaml`: score weights (drift 35% / value 30%
 / F&G 20% / news 15%), label buckets, run times, saturation thresholds.
 Mis-resolved DR codes get a manual entry in `overrides.yaml` (base token →
-real ticker); delete the cached row from the `ticker_map` table (or the whole
-DB) after editing so the override is picked up.
+real ticker). An override always beats the `ticker_map` cache, so no DB
+cleanup is needed after editing.
 
 ## Deploy (GitHub Actions + encrypted Pages — $0)
 

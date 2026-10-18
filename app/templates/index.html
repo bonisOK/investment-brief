@@ -58,10 +58,53 @@
 
   .banner { background: var(--surface-1); border: 1px solid var(--border); border-left: 4px solid var(--pos); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: .9rem; }
 
+  /* Calendar: month grid of very important news, earnings and Thai XD/pay
+     days. The ring colour (good/bad) is reinforcement only — the day panel
+     spells out what each item means. */
+  .calcard { margin-bottom: 16px; }
+  .calhead { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .calhead h2 { margin: 0; flex: 1; }
+  .calnav { font-size: 1rem; line-height: 1; color: var(--text-secondary); background: none; border: 1px solid var(--border); border-radius: 8px; padding: 4px 11px; cursor: pointer; }
+  .calnav:disabled { opacity: .3; cursor: default; }
+  .calgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+  .cdow { font-size: .66rem; color: var(--muted); text-align: center; text-transform: uppercase; letter-spacing: .04em; padding-bottom: 2px; }
+  .cday { min-height: 56px; border: 1px solid var(--grid); border-radius: 8px; padding: 3px 2px 4px 3px; cursor: pointer; background: none; color: inherit; font: inherit; text-align: left; display: flex; flex-direction: column; min-width: 0; }
+  .cday:hover { background: color-mix(in srgb, var(--text-primary) 4%, transparent); }
+  .cday .dn { font-size: .7rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .cday.past .dn { color: var(--muted); }
+  .cday.today { border-color: var(--text-primary); }
+  .cday.today .dn { font-weight: 800; color: var(--text-primary); }
+  .cday.sel { background: color-mix(in srgb, var(--text-primary) 9%, transparent); }
+  .cblank { min-height: 56px; }
+  .cchips { display: flex; flex-wrap: wrap; gap: 4px 3px; margin-top: 3px; }
+  .cchip { position: relative; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--grid); background: var(--surface-1); display: inline-flex; align-items: center; justify-content: center; font-size: .42rem; letter-spacing: -.02em; font-weight: 700; line-height: 1; flex: none; }
+  .clbl { overflow: hidden; max-width: 100%; font-weight: 700; }
+  .cchip img { width: 12px; height: 12px; border-radius: 2px; }
+  .cchip.good { border-color: var(--pos); }
+  .cchip.bad { border-color: var(--neg); }
+  .cbadge { position: absolute; right: -4px; bottom: -4px; font-size: 7px; line-height: 1; font-style: normal; }
+  .cmore { font-size: .62rem; color: var(--muted); align-self: center; }
+  @media (min-width: 640px) {
+    .cday { min-height: 74px; padding: 5px 6px; }
+    .cchip { width: 24px; height: 24px; border-radius: 6px; font-size: .58rem; }
+    .cchip img { width: 17px; height: 17px; border-radius: 3px; }
+    .cbadge { font-size: 11px; right: -6px; bottom: -5px; }
+    .cchips { gap: 5px 7px; }
+  }
+  .calpanel { margin-top: 12px; border-top: 1px solid var(--grid); padding-top: 10px; }
+  .calpanel h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); margin: 0 0 8px; }
+  .calitem { border: 1px solid var(--grid); border-left: 3px solid var(--muted); border-radius: 10px; padding: 8px 11px; margin-bottom: 7px; font-size: .86rem; line-height: 1.45; }
+  .calitem.good { border-left-color: var(--pos); }
+  .calitem.bad { border-left-color: var(--neg); }
+  .calitem .ct { font-weight: 650; }
+  .calitem a { color: var(--text-primary); }
+  .calitem .cl { color: var(--text-secondary); font-size: .8rem; font-variant-numeric: tabular-nums; }
+  .calitem .cdate { color: var(--muted); font-size: .75rem; margin-right: 6px; }
+  .calempty { color: var(--muted); font-size: .85rem; margin: 2px 0 8px; }
+  .callegend { color: var(--muted); font-size: .72rem; margin-top: 8px; line-height: 1.7; }
+
   /* Today's brief */
   .briefcard { margin-bottom: 16px; }
-  .briefsum { margin: 0 0 12px; padding-left: 20px; color: var(--text-primary); font-size: .92rem; }
-  .briefsum li { margin-bottom: 5px; }
   .briefgroup { margin-top: 14px; }
   .briefgroup h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; margin: 0 0 8px; padding-bottom: 5px; border-bottom: 2px solid var(--grid); }
   .bg-act { color: var(--neg); border-bottom-color: color-mix(in srgb, var(--neg) 45%, transparent) !important; }
@@ -176,14 +219,21 @@
 <script>setTimeout(() => location.replace('/'), 60000);</script>
 {% endif %}
 
-{% if snap.brief and snap.brief['items'] %}
+<div class="card calcard" id="calcard">
+  <div class="calhead">
+    <button class="calnav" id="calprev" aria-label="Previous month">‹</button>
+    <h2 id="caltitle">🗓️ Calendar</h2>
+    <button class="calnav" id="calnext" aria-label="Next month">›</button>
+  </div>
+  <div class="calgrid" id="calgrid"></div>
+  <div class="calpanel" id="calpanel"></div>
+  <div class="callegend">📊 earnings · 💰 XD · 💸 dividend paid · ⚖️ legal · 🤝 M&amp;A · 🧭 guidance · 👤 leadership · 🛡️ security · 📈📉 big move · 🏛️ policy · 🌐 US market · 🇹🇭 SET · green / red ring = good / bad for you</div>
+</div>
+
+{% if snap.brief %}
 <div class="card briefcard">
   <h2>📰 Today's brief</h2>
-  {% if snap.brief.summary %}
-    {# Snapshots saved before the summary became a list still hold a string. #}
-    {% set bullets = [snap.brief.summary] if snap.brief.summary is string else snap.brief.summary %}
-    <ul class="briefsum">{% for b in bullets %}<li>{{ b }}</li>{% endfor %}</ul>
-  {% endif %}
+  {% if not snap.brief['items'] %}<p class="calempty">No new stories since the last brief. Earlier big ones are on the calendar.</p>{% endif %}
   {% for gkey, gtitle in [('act', '🔴 ACT NOW'), ('watch', '🟡 WATCH'), ('fyi', '⚪ FYI')] %}
     {% set gitems = snap.brief['items'] | selectattr('urgency', 'equalto', gkey) | list %}
     {% if gitems %}
@@ -402,6 +452,90 @@ function applyPrivacy(on) {
 function togglePrivacy() { applyPrivacy(localStorage.getItem('privacy') !== '1'); }
 if (localStorage.getItem('privacy') === '1') addEventListener('DOMContentLoaded', () => applyPrivacy(true));
 
+/* ---- Calendar ---------------------------------------------------------- */
+const CAL = {{ cal_json | safe }};
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+let calMonth = CAL.today.slice(0, 7), calSel = CAL.today;
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function favicon(domain, sz) {
+  return `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${sz}" loading="lazy" alt="" onerror="this.outerHTML='<b class=clbl>'+(this.dataset.t||'')+'</b>'">`;
+}
+function chip(it) {
+  const label = it.code ? it.code.replace(/\d+$/, '').slice(0, 3) : '';
+  const face = it.domain ? favicon(it.domain, 32).replace('alt=""', `alt="" data-t="${esc(label)}"`)
+             : it.icon ? it.icon : `<b class="clbl">${esc(label)}</b>`;
+  return `<span class="cchip ${esc(it.tone)}" title="${esc(it.title)}">${face}<i class="cbadge">${it.badge}</i></span>`;
+}
+function iso(y, m, d) { return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`; }
+function shortDate(s) { const [y, m, d] = s.split('-').map(Number); return `${d} ${MONTHS[m - 1].slice(0, 3)}`; }
+
+function renderCalGrid() {
+  const [y, m] = calMonth.split('-').map(Number);
+  document.getElementById('caltitle').textContent = `🗓️ ${MONTHS[m - 1]} ${y}`;
+  document.getElementById('calprev').disabled = calMonth <= CAL.first;
+  document.getElementById('calnext').disabled = calMonth >= CAL.last;
+  const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7;  // Monday-first
+  const ndays = new Date(y, m, 0).getDate();
+  let h = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => `<div class="cdow">${d}</div>`).join('');
+  h += '<div class="cblank"></div>'.repeat(lead);
+  for (let d = 1; d <= ndays; d++) {
+    const key = iso(y, m, d), items = CAL.days[key] || [];
+    const cls = ['cday', key === CAL.today ? 'today' : '', key < CAL.today ? 'past' : '', key === calSel ? 'sel' : ''].join(' ');
+    const shown = items.slice(0, 4).map(chip).join('');
+    const more = items.length > 4 ? `<span class="cmore">+${items.length - 4}</span>` : '';
+    h += `<button class="${cls}" data-day="${key}"><span class="dn">${d}</span><span class="cchips">${shown}${more}</span></button>`;
+  }
+  const grid = document.getElementById('calgrid');
+  grid.innerHTML = h;
+  grid.querySelectorAll('.cday').forEach(b => b.addEventListener('click', () => {
+    calSel = b.dataset.day; renderCalGrid(); renderCalPanel();
+  }));
+}
+
+function calItem(it, withDate) {
+  const codes = it.codes.map(c => `<span class="tkchip">${esc(c)}</span>`).join('') || (it.icon ? it.icon + ' ' : '');
+  const title = it.link ? `<a href="${esc(it.link)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : esc(it.title);
+  const src = it.publisher ? ` <span class="src">${esc(it.publisher)}</span>` : '';
+  const lines = it.lines.map(l => `<div class="cl">${esc(l)}</div>`).join('');
+  const why = it.why ? `<div class="why" style="max-width:none">${esc(it.why)}</div>` : '';
+  const act = it.action ? `<div class="actline">👉 ${esc(it.action)}</div>` : '';
+  const when = withDate ? `<span class="cdate">${shortDate(withDate)}</span>` : '';
+  return `<div class="calitem ${esc(it.tone)}"><div class="ct">${when}${it.badge} ${codes}${title}${src}</div>${lines}${why}${act}</div>`;
+}
+
+function renderCalPanel() {
+  const items = CAL.days[calSel] || [];
+  const label = calSel === CAL.today ? 'Today' : shortDate(calSel);
+  let h = `<h3>${label}</h3>`;
+  if (items.length) {
+    h += items.map(it => calItem(it)).join('');
+  } else {
+    h += '<p class="calempty">Nothing big on this day.</p>';
+    if (calSel === CAL.today) {
+      const next = Object.keys(CAL.days).filter(d => d > CAL.today).sort()
+        .flatMap(d => CAL.days[d].map(it => [d, it])).slice(0, 3);
+      if (next.length) h += '<h3>Coming up</h3>' + next.map(([d, it]) => calItem(it, d)).join('');
+    }
+  }
+  document.getElementById('calpanel').innerHTML = h;
+  if (localStorage.getItem('privacy') === '1') applyPrivacy(true);
+}
+
+function shiftMonth(delta) {
+  let [y, m] = calMonth.split('-').map(Number);
+  m += delta; if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; }
+  calMonth = `${y}-${String(m).padStart(2, '0')}`;
+  renderCalGrid();
+}
+document.getElementById('calprev').addEventListener('click', () => shiftMonth(-1));
+document.getElementById('calnext').addEventListener('click', () => shiftMonth(1));
+renderCalGrid();
+renderCalPanel();
+
+/* ---- Charts ------------------------------------------------------------ */
 const DATA = {{ chart_json | safe }};
 const css = getComputedStyle(document.documentElement);
 const C = {

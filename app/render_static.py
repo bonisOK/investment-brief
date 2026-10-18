@@ -10,7 +10,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-from . import db
+from . import calendar_view, db
 from .main import _chart_data
 
 OUT = Path(__file__).resolve().parent.parent / "site" / "index.html"
@@ -35,6 +35,8 @@ def main() -> int:
         static_mode=True,
         ticker_domains={r["dr_code"]: r["domain"]
                         for r in snap["rows"] if r.get("domain")},
+        cal_json=calendar_view.cal_json({r["dr_code"]: r["domain"]
+                                          for r in snap["rows"] if r.get("domain")}),
         chart_json=json.dumps(_chart_data(snap["rows"]), ensure_ascii=False),
     )
     OUT.parent.mkdir(parents=True, exist_ok=True)

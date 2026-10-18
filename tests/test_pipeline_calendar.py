@@ -44,3 +44,13 @@ def test_run_stores_events_marks_shown_and_dedupes_next_brief(monkeypatch):
     snap2 = pipeline.run_pipeline()
     assert len(calls) == 1
     assert snap2["brief"]["items"] == []
+
+
+def test_dividend_cash_uses_shares_from_both_books():
+    results = [{"dr_code": "ADVANC", "is_thai": True, "current_shares": 1000},
+               {"dr_code": "ADVANC", "is_thai": True, "current_shares": 500},
+               {"dr_code": "MU80", "is_thai": False, "current_shares": 9}]
+    ev = {"id": "xd:ADVANC:2026-10-28", "date": "2026-10-28", "kind": "xd", "code": "ADVANC",
+          "dps": 4.0, "est_cash": 4000.0}
+    out = pipeline._combine_events([dict(ev), dict(ev, est_cash=2000.0)], results)
+    assert len(out) == 1 and out[0]["est_cash"] == 6000.0

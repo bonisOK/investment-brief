@@ -13,7 +13,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
-from . import db, pipeline
+from . import calendar_view, db, pipeline
 from .config import APP_PASSWORD, CFG
 
 logging.basicConfig(level=logging.INFO,
@@ -86,6 +86,8 @@ def index(request: Request, _=Depends(_guard)):
         # DR code -> company website domain, for logos in the brief card.
         "ticker_domains": {r["dr_code"]: r["domain"]
                            for r in snap["rows"] if r.get("domain")},
+        "cal_json": calendar_view.cal_json({r["dr_code"]: r["domain"]
+                                                for r in snap["rows"] if r.get("domain")}),
         "chart_json": json.dumps(_chart_data(snap["rows"]), ensure_ascii=False),
     })
 

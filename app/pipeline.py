@@ -49,7 +49,8 @@ def run_pipeline() -> dict:
     events, fresh = [], {}
     for r in results:
         events += r.pop("_events", [])
-        fresh[r["dr_code"]] = r.pop("_fresh", set())
+        fresh.setdefault(r["dr_code"], set()).update(r.pop("_fresh", set()))
+    events = _combine_events(events, results)
 
     # Phase 2: batched AI analysis (a handful of Gemini calls, not one per name).
     analyses = ai.analyze_batch(results)
@@ -100,6 +101,20 @@ def run_pipeline() -> dict:
     log.info("pipeline done: run %s, %d names, %.0fs", run_id, len(results),
              payload["duration_s"])
     return payload
+
+
+def _combine_events(events: list[dict], results: list[dict]) -> list[dict]:
+    """One event per id. A Thai name held in both books yields the same XD
+    twice; its estimated cash must use the shares from both books."""
+    shares: dict[str, float] = {}
+    for r in results:
+        if r.get("is_thai") and r.get("current_shares"):
+            shares[r["dr_code"]] = shares.get(r["dr_code"], 0) + r["current_shares"]
+    by_id = {e["id"]: e for e in events}
+    for e in by_id.values():
+        if e["kind"] in ("xd", "pay") and e.get("dps") is not None and shares.get(e["code"]):
+            e["est_cash"] = round(e["dps"] * shares[e["code"]], 0)
+    return list(by_id.values())
 
 
 def _save_events(events: list[dict], fresh: dict[str, set], today: str) -> None:

@@ -56,6 +56,7 @@
   .port .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
   .port .seg button { font: inherit; font-size: .8rem; padding: 5px 11px; background: none; border: none; color: var(--text-secondary); cursor: pointer; }
   .port .seg button + button { border-left: 1px solid var(--border); }
+  .port .seg button:disabled { opacity: .35; cursor: default; }
   .port .seg button.on { background: var(--text-primary); color: var(--page); font-weight: 650; }
   .port details.dd { position: relative; }
   .port details.dd summary { list-style: none; cursor: pointer; font-size: .8rem; padding: 5px 11px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-1); white-space: nowrap; }
@@ -138,6 +139,7 @@
       </div>
       <div class="controls">
         <div class="seg" data-f="mode"><button type="button" data-v="perf" class="on">Vs index</button><button type="button" data-v="trades">Trades</button></div>
+        <div class="seg" data-f="lvlpick" hidden></div>
         <details class="dd" data-f="dd"><summary data-f="ddsum">Compare</summary><div class="menu" data-f="ddmenu"></div></details>
         <div class="seg" data-f="period"><button type="button" data-v="1M">1M</button><button type="button" data-v="3M">3M</button><button type="button" data-v="YTD">YTD</button><button type="button" data-v="ALL" class="on">All</button></div>
       </div>
@@ -289,7 +291,7 @@ function render(key) {
   q(root, 'health').innerHTML = bits.map(b => `<div>${b}</div>`).join('');
 
   // ---- performance chart
-  const state = { mode: 'perf', period: 'ALL', bucket: 'M', ix: Object.fromEntries(INDEXES.map(ix => [ix.key, defaults.includes(ix.key)])) };
+  const state = { mode: 'perf', period: 'ALL', bucket: 'M', lvl: 'spx', ix: Object.fromEntries(INDEXES.map(ix => [ix.key, defaults.includes(ix.key)])) };
   const chart = LightweightCharts.createChart(q(root, 'lw'), {
     autoSize: true,
     layout: { background: { type: 'solid', color: 'transparent' }, textColor: css('--muted'), fontFamily: 'system-ui, -apple-system, Segoe UI, sans-serif', fontSize: 11 },
@@ -307,6 +309,19 @@ function render(key) {
   INDEXES.forEach(ix => { L[ix.key] = chart.addLineSeries({ color: css(ix.color), lineWidth: 2, priceLineVisible: false, lastValueVisible: false }); L[ix.key].setData(toLW(D.series[ix.key] || [])); });
   L.you = chart.addLineSeries({ color: css('--you'), lineWidth: 3, priceLineVisible: false, lastValueVisible: !priv() });
   L.you.setData(toLW(D.series.you));
+  // Trades view: the market's own level (index points, not ฿) with the arrows on it.
+  const LV = D.index_levels || {};
+  const hasLvl = k => (LV[k] || []).some(v => v != null);
+  if (!hasLvl(state.lvl)) state.lvl = INDEXES.map(ix => ix.key).find(hasLvl) || 'spx';
+  const lvlFmt = v => v.toLocaleString('en-US', { maximumFractionDigits: v >= 1000 ? 0 : 2 });
+  L.lvl = chart.addLineSeries({ color: css('--spx'), lineWidth: 2, priceLineVisible: false, lastValueVisible: true, visible: false,
+                                priceFormat: { type: 'custom', formatter: lvlFmt, minMove: 0.01 } });
+  const setLvl = () => {
+    const ix = INDEXES.find(x => x.key === state.lvl);
+    L.lvl.applyOptions({ color: css(ix.color) });
+    L.lvl.setData(toLW(LV[state.lvl] || []));
+  };
+  setLvl();
 
   const byDay = {};
   D.trades.forEach(t => { const k = t.date + t.side; (byDay[k] ||= { date: t.date, side: t.side, thb: 0, items: [] }); byDay[k].thb += t.thb; byDay[k].items.push(t); });
@@ -332,6 +347,8 @@ function render(key) {
       INDEXES.filter(ix => state.ix[ix.key]).forEach(ix => rows.push(`<div class="r"><i style="background:var(${ix.color})"></i>${ix.name} ${v(ix.key)}</div>`));
       rows.push(`<div class="r"><i style="background:var(--money)"></i>Money in ${v('money')}</div>`);
     } else {
+      const ix = INDEXES.find(x => x.key === state.lvl), lv = (LV[state.lvl] || [])[idx];
+      rows[1] = `<div class="r"><i style="background:var(${ix.color})"></i>${ix.name} <b>${lv == null ? '–' : lvlFmt(lv)}</b></div>`;
       const t = tradesOn(days[idx]);
       if (!t.length) rows.push(`<div class="tr" style="color:var(--muted)">No trades this day</div>`);
       t.forEach(x => rows.push(`<div class="tr"><b class="${x.side === 'Buy' ? 'pos' : 'neg'}">${x.side === 'Buy' ? '▲ Bought' : '▼ Sold'} ${money(x.thb)}</b>: ${x.items.slice(0, 4).map(i => i.code).join(', ')}${x.items.length > 4 ? ' +' + (x.items.length - 4) : ''}</div>`));
@@ -359,11 +376,18 @@ function render(key) {
     const perf = state.mode === 'perf';
     INDEXES.forEach(ix => L[ix.key].applyOptions({ visible: perf && state.ix[ix.key] }));
     L.money.applyOptions({ visible: perf });
-    L.you.setMarkers(perf ? [] : markers);
+    L.you.applyOptions({ visible: perf });
+    L.lvl.applyOptions({ visible: !perf });
+    L.lvl.setMarkers(perf ? [] : markers);
+    // Index points are not private, so the axis stays on in Trades even with Hide ฿.
+    chart.applyOptions({ rightPriceScale: { visible: !perf || !priv() },
+                         localization: { priceFormatter: perf ? (v => (priv() ? MASK : fmtShort(v))) : lvlFmt } });
     q(root, 'dd').style.display = perf ? '' : 'none';
+    q(root, 'lvlpick').hidden = perf;
     q(root, 'flowwrap').hidden = perf;
     q(root, 'perftitle').textContent = perf ? 'Your money vs the same money in an index' : 'When you bought and sold';
-    q(root, 'perfsub').textContent = perf ? 'Shadow line: every deposit buys the index on the same day, in ฿' : 'Your portfolio value with every trade marked';
+    q(root, 'perfsub').textContent = perf ? 'Shadow line: every deposit buys the index on the same day, in ฿'
+      : `${INDEXES.find(x => x.key === state.lvl).name} level with every trade marked: did you buy dips or tops?`;
     if (!perf) drawFlow();
     verdicts(); drawLegend(null); applyPeriod();
   }
@@ -376,6 +400,8 @@ function render(key) {
     const el = q(root, name);
     el.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; el.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); });
   }
+  q(root, 'lvlpick').innerHTML = INDEXES.map(ix => `<button type="button" data-v="${ix.key}" class="${ix.key === state.lvl ? 'on' : ''}" ${hasLvl(ix.key) ? '' : 'disabled'}>${ix.name}</button>`).join('');
+  seg('lvlpick', v => { state.lvl = v; setLvl(); applyMode(); });
   seg('mode', v => { state.mode = v; applyMode(); });
   seg('period', v => { state.period = v; applyPeriod(); });
   seg('bucket', v => { state.bucket = v; drawFlow(); });

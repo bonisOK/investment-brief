@@ -60,3 +60,10 @@ def test_parse_set_api_quotes_defensively():
     payload = {"quotations": [{"datetime": "2026-03-02T00:00:00+07:00", "price": 1401.5},
                               {"date": "2026-03-03", "value": 1399.0}, {"datetime": "bad"}, "x"]}
     assert pricehist._parse_quotes(payload) == {date(2026, 3, 2): 1401.5, date(2026, 3, 3): 1399.0}
+
+
+def test_level_uses_index_points_then_etf_fallback():
+    pts = {date(2026, 3, d): 6800.0 for d in range(1, 31)}
+    spy = {date(2026, 3, d): 680.0 for d in range(1, 31)}
+    assert FakeFetcher({"^GSPC": (pts, "USD"), "SPY": (spy, "USD")}).level("spx") == pts
+    assert FakeFetcher({"SPY": (spy, "USD")}).level("spx") == spy

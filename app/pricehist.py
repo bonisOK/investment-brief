@@ -21,6 +21,8 @@ INDEXES = {
     "set": ("^SET.BK", False),   # price only: Yahoo has no SET total-return
 }
 MIN_POINTS = 20
+# Index level shown under the trade arrows (the market itself, not ฿).
+LEVELS = {"spx": ["^GSPC", "SPY"], "ndx": ["^NDX", "QQQ"]}
 # Yahoo's SET index history comes back empty from time to time, so SET has
 # fallbacks, tried in order. The label tells the page which one it got.
 SET_SOURCES = [
@@ -182,6 +184,17 @@ class Fetcher:
             series = multiply(series, usd) if usd else {}
         log.info("index %s via %s: %d points", key, symbol, len(series))
         return series, None
+
+    def level(self, key: str) -> dict[date, float]:
+        """The index's own level (points, not ฿) for the Trades chart:
+        ^GSPC / ^NDX, falling back to SPY / QQQ; SET uses its own chain."""
+        if key == "set":
+            return self.index("set")[0]
+        for sym in LEVELS[key]:
+            series, _ = self.history(sym)
+            if len(series) >= MIN_POINTS:
+                return series
+        return {}
 
     def ticker(self, code: str, underlying: str | None,
                points: list[tuple[date, float]]) -> tuple[dict[date, float], str]:

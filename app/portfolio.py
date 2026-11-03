@@ -193,13 +193,15 @@ def _book_inputs(book: str, results: list[dict], fetch: pricehist.Fetcher, today
             aligned[-1] = sheet_px
         prices[code] = aligned
 
-    idx, labels = {}, {}
+    idx, labels, levels = {}, {}, {}
     for k in pricehist.INDEXES:
         series, label = fetch.index(k)
         idx[k] = pricehist.align(series, days)
         if label:
             labels[k] = label
-    return txns, warns, days, prices, idx, names, domains, sources, labels
+        levels[k] = [round(v, 2) if v is not None else None
+                     for v in pricehist.align(fetch.level(k), days)]
+    return txns, warns, days, prices, idx, names, domains, sources, labels, levels
 
 
 def reconcile(book: str, held_now: dict[str, float], stock_value: float,
@@ -224,10 +226,11 @@ def build(results: list[dict], today: date | None = None) -> dict:
     out = {"default_indexes": DEFAULT_INDEXES}
     for book in ("growth", "dividend"):
         try:
-            txns, warns, days, prices, idx, names, domains, sources, labels = _book_inputs(
+            txns, warns, days, prices, idx, names, domains, sources, labels, levels = _book_inputs(
                 book, results, fetch, today)
             p = compute_book(txns, days, prices, idx, names, domains, sources)
             p["index_labels"] = labels
+            p["index_levels"] = levels   # the Trades chart: index points, not ฿
             p["warnings"] = warns + p["warnings"]
             p["sources"] = {s: sum(1 for v in sources.values() if v == s)
                             for s in ("dr", "underlying", "est")}

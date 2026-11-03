@@ -34,6 +34,17 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS events_date ON events(date);
 -- Stories the brief already showed, so the next run doesn't repeat them.
+-- One row per day per book: the portfolio tabs' real total, so the rebuilt
+-- history can be checked against what the sheet actually said that day.
+CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+    date TEXT NOT NULL,
+    book TEXT NOT NULL,
+    total REAL,
+    cash REAL,
+    stock_value REAL,
+    saved_at TEXT,
+    PRIMARY KEY (date, book)
+);
 CREATE TABLE IF NOT EXISTS shown_news (
     key TEXT PRIMARY KEY,
     headline TEXT,
@@ -148,3 +159,17 @@ def recent_shown(since: str, path: str = DB_PATH) -> list[str]:
         rows = c.execute("SELECT headline FROM shown_news WHERE shown_at >= ? "
                          "ORDER BY shown_at DESC", (since,)).fetchall()
         return [r["headline"] for r in rows if r["headline"]]
+
+
+def save_portfolio_snapshot(day: str, book: str, total: float, cash: float,
+                            stock_value: float, path: str = DB_PATH) -> None:
+    with _conn(path) as c:
+        c.execute("INSERT OR REPLACE INTO portfolio_snapshots VALUES (?,?,?,?,?,?)",
+                  (day, book, total, cash, stock_value, datetime.now(timezone.utc).isoformat()))
+
+
+def portfolio_snapshots(book: str, path: str = DB_PATH) -> list[dict]:
+    with _conn(path) as c:
+        rows = c.execute("SELECT date, total, cash, stock_value FROM portfolio_snapshots "
+                         "WHERE book=? ORDER BY date", (book,)).fetchall()
+        return [dict(r) for r in rows]

@@ -23,6 +23,7 @@ def test_run_stores_events_marks_shown_and_dedupes_next_brief(monkeypatch):
         [{"id": "earn:MU80:2026-12-17", "date": "2026-12-17", "kind": "earnings",
           "code": "MU80", "tone": "neutral"}], {"earnings"}))
     monkeypatch.setattr(ai, "analyze_batch", lambda rows: {})
+    monkeypatch.setattr(pipeline.portfolio, "build", lambda rows, today=None: {"growth": {"error": "x"}})
     monkeypatch.setattr(ai, "decide_amounts", lambda rows: {})
     monkeypatch.setattr(ai, "GEMINI_API_KEY", "x")
     monkeypatch.setattr(ai, "CALL_GAP_S", 0)

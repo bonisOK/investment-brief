@@ -11,8 +11,13 @@ from .config import SHEET_ID, UA
 GVIZ = "https://docs.google.com/spreadsheets/d/{sid}/gviz/tq?tqx=out:csv&sheet={tab}"
 
 
-def _fetch_tab(tab: str, sheet_id: str = SHEET_ID) -> pd.DataFrame:
+def _fetch_tab(tab: str, sheet_id: str = SHEET_ID, query: str = "",
+               headers: int | None = None) -> pd.DataFrame:
     url = GVIZ.format(sid=sheet_id, tab=quote(tab))
+    if query:
+        url += "&tq=" + quote(query)
+    if headers is not None:
+        url += f"&headers={headers}"
     r = requests.get(url, headers=UA, timeout=30)
     r.raise_for_status()
     df = pd.read_csv(io.StringIO(r.text))
@@ -72,6 +77,7 @@ def read_growth(sheet_id: str = SHEET_ID) -> list[dict]:
                 "current_value": value,
                 "average_cost": _num(r.get("Average Cost")),
                 "current_shares": _num(r.get("Current Shares")),
+                "current_price": _num(r.get("Current Price")),
                 "unrealized_pct": _num(r.get("Unrealized %")),
                 "unrealized_gain": _num(r.get("Unrealized Gain")),
                 "is_thai": section.upper() == "THAI",
@@ -111,3 +117,30 @@ def read_dividend(sheet_id: str = SHEET_ID) -> list[dict]:
             }
         )
     return rows
+
+
+TRANSACTION_TABS = {"growth": "Transaction", "dividend": "DividendTransaction"}
+
+
+def read_transactions(book: str, sheet_id: str = SHEET_ID) -> list[dict]:
+    """The book's trade log, raw: one dict per row with date text, type,
+    ticker, shares, price and the signed cash flow ("Final"). Only columns
+    A:G are asked for, so the side tables on the right never leak in, and the
+    first row is forced to be the only header row."""
+    df = _fetch_tab(TRANSACTION_TABS[book], sheet_id,
+                    query="select A,B,C,D,E,F,G", headers=1)
+    cols = ["date", "type", "ticker", "shares", "price", "before_com", "final"]
+    df = df.iloc[:, :7]
+    df.columns = cols
+    out = []
+    for _, r in df.iterrows():
+        out.append({
+            "date": _text(r["date"]),
+            "type": _text(r["type"]),
+            "ticker": _text(r["ticker"]).upper(),
+            "shares": _num(r["shares"]),
+            "price": _num(r["price"]),
+            "before_com": _num(r["before_com"]),
+            "final": _num(r["final"]),
+        })
+    return out

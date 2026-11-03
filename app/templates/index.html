@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Investment Brief</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <style>
   :root {
     color-scheme: light;
@@ -219,6 +220,14 @@
 <script>setTimeout(() => location.replace('/'), 60000);</script>
 {% endif %}
 
+<nav class="tabs" aria-label="Sections">
+  <a href="#brief" data-tab="brief">Brief</a>
+  <a href="#growth" data-tab="growth">Growth</a>
+  <a href="#dividend" data-tab="dividend">Dividend</a>
+</nav>
+
+<section id="tab-brief">
+
 <div class="card calcard" id="calcard">
   <div class="calhead">
     <button class="calnav" id="calprev" aria-label="Previous month">‹</button>
@@ -414,6 +423,9 @@
     </tbody>
   </table></div>
 </section>
+</section>{# /tab-brief #}
+
+{% include "_portfolio.html" %}
 
 <footer>
   Advisory only — not financial advice. No orders are placed; act manually in DIME.<br>

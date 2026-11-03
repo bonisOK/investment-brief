@@ -20,6 +20,22 @@ Open http://127.0.0.1:8000. On first boot with an empty DB a snapshot is built
 automatically (takes a few minutes — yfinance + news + Gemini for every name).
 `GET/POST /run` triggers a run manually; `GET /api/latest` returns the raw JSON.
 
+## Growth / Dividend tabs
+
+Next to the brief, two tabs rebuild each book from its trade log
+(`Transaction` / `DividendTransaction`, columns A:G): daily value vs a
+**shadow index** (every deposit buys S&P 500 / Nasdaq 100 / SET on the same
+day, in ฿), trades on the chart, allocation, per-stock contribution, buy win
+rate and sell check. Realized gain uses the sheet's own method (running
+average cost, sell value before fees), so it matches the REALIZED GAIN tabs.
+
+Prices: the DR's own SET history if Yahoo has it, else the underlying ×
+FX × a DR ratio fitted to your own trade prices, else the trade prices
+themselves (shown as "est."). Each run checks the rebuilt shares and value
+against the sheet and shows a ⚠ line on the tab if they differ. No new keys.
+Code: `app/ledger.py` (pure maths), `app/pricehist.py`, `app/portfolio.py`,
+`app/templates/_portfolio.html`.
+
 ## Keys (.env)
 
 | Var | What | Where |

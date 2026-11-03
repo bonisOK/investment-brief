@@ -89,6 +89,7 @@ def index(request: Request, _=Depends(_guard)):
         "cal_json": calendar_view.cal_json({r["dr_code"]: r["domain"]
                                                 for r in snap["rows"] if r.get("domain")}),
         "chart_json": json.dumps(_chart_data(snap["rows"]), ensure_ascii=False),
+        "port_json": port_json(snap),
     })
 
 
@@ -103,6 +104,12 @@ def _chart_data(rows: list[dict]) -> dict:
     # STRONG BUY / SELL are no longer charted — the template renders them as
     # HTML action lists so the ฿ amounts respond to the privacy toggle.
     return {"movers": pack(movers, lambda r: r["chg_1d"])}
+
+
+def port_json(snap: dict) -> str:
+    """Portfolio tabs payload for the page. '</' is escaped so a company
+    name can never close the <script> it is embedded in."""
+    return json.dumps(snap.get("portfolio") or {}, ensure_ascii=False).replace("</", "<\\/")
 
 
 @app.post("/run")

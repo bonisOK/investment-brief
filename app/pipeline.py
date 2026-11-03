@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 import requests
 import yfinance as yf
 
-from . import ai, calendar_data, db, news, prices, resolver, scoring, sentiment, sheets
+from . import ai, calendar_data, db, news, portfolio, prices, resolver, scoring, sentiment, sheets
 from .config import APPS_SCRIPT_URL, CFG
 
 log = logging.getLogger(__name__)
@@ -89,8 +89,16 @@ def run_pipeline() -> dict:
         events += calendar_data.news_events(brief["items"], now)
     _save_events(events, fresh, now.date().isoformat())
 
+    # Phase 5: Growth / Dividend tabs. Never allowed to stop the brief.
+    try:
+        port = portfolio.build(results, now.date())
+    except Exception as e:
+        log.exception("portfolio tabs failed")
+        port = {"growth": {"error": str(e)}, "dividend": {"error": str(e)}}
+
     payload = {
         "brief": brief,
+        "portfolio": port,
         "run_at": now.isoformat(),
         "run_at_display": now.strftime("%d %b %Y %H:%M"),
         "fng": fng,

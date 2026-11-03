@@ -3,12 +3,14 @@ benchmark indexes. Pure helpers (align, fit_ratio) are separate from the
 yfinance glue so they can be tested without the network."""
 import logging
 from bisect import bisect_right
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from statistics import median
 
+import requests
 import yfinance as yf
 
 from . import ledger
+from .config import UA
 
 log = logging.getLogger(__name__)
 
@@ -18,6 +20,38 @@ INDEXES = {
     "ndx": ("QQQ", True),
     "set": ("^SET.BK", False),   # price only: Yahoo has no SET total-return
 }
+MIN_POINTS = 20
+# Yahoo's SET index history comes back empty from time to time, so SET has
+# fallbacks, tried in order. The label tells the page which one it got.
+SET_SOURCES = [
+    ("yf", "^SET.BK", "SET index, price only"),
+    ("chart", "^SET.BK", "SET index, price only"),
+    ("setapi", "SET", "SET index, price only (set.or.th)"),
+    ("yf", "TDEX.BK", "SET50 ETF TDEX (fallback)"),
+    ("yf", "^SET50.BK", "SET50 index (fallback)"),
+]
+SET_API = "https://www.set.or.th/api/set/index/{sym}/chart-quotation?period=5Y&accumulated=false"
+YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/{sym}"
+
+
+def _parse_quotes(payload) -> dict[date, float]:
+    """set.or.th chart-quotation JSON -> {date: close}. Read defensively:
+    the list may sit under 'quotations' or be the payload itself, and the
+    value under 'price', 'close', 'value' or 'index'."""
+    rows = payload.get("quotations") if isinstance(payload, dict) else payload
+    out = {}
+    for r in rows or []:
+        if not isinstance(r, dict):
+            continue
+        raw = r.get("datetime") or r.get("date") or r.get("tradingDate")
+        v = next((r[k] for k in ("price", "close", "value", "index") if isinstance(r.get(k), (int, float))), None)
+        if not raw or v is None:
+            continue
+        try:
+            out[date.fromisoformat(str(raw)[:10])] = float(v)
+        except ValueError:
+            continue
+    return out
 
 
 # ---------- pure helpers ----------
@@ -107,13 +141,47 @@ class Fetcher:
         fx = self.fx_to_thb(ccy)
         return multiply(series, fx) if (series and fx) else series
 
-    def index(self, key: str) -> dict[date, float]:
+    def yahoo_chart(self, symbol: str) -> dict[date, float]:
+        """Yahoo's chart API called directly: works some days when the
+        yfinance wrapper comes back empty."""
+        try:
+            r = requests.get(YAHOO_CHART.format(sym=symbol), headers=UA, timeout=20,
+                             params={"period1": int(datetime.combine(self.start, time()).timestamp()),
+                                     "period2": int(datetime.now().timestamp()), "interval": "1d"})
+            res = r.json()["chart"]["result"][0]
+            closes = res["indicators"]["quote"][0]["close"]
+            return {datetime.utcfromtimestamp(t).date(): float(c)
+                    for t, c in zip(res["timestamp"], closes) if c is not None}
+        except Exception as e:
+            log.info("yahoo chart failed for %s: %s", symbol, e)
+            return {}
+
+    def set_api(self, symbol: str) -> dict[date, float]:
+        try:
+            r = requests.get(SET_API.format(sym=symbol), timeout=20,
+                             headers={**UA, "Referer": "https://www.set.or.th/", "Accept": "application/json"})
+            return {d: v for d, v in _parse_quotes(r.json()).items() if d >= self.start}
+        except Exception as e:
+            log.info("set.or.th failed for %s: %s", symbol, e)
+            return {}
+
+    def index(self, key: str) -> tuple[dict[date, float], str | None]:
+        """(฿ series, label of the source used). Empty series when all fail."""
         symbol, in_usd = INDEXES[key]
+        if key == "set":
+            for kind, sym, label in SET_SOURCES:
+                series = (self.history(sym)[0] if kind == "yf" else
+                          self.yahoo_chart(sym) if kind == "chart" else self.set_api(sym))
+                log.info("index set via %s %s: %d points", kind, sym, len(series))
+                if len(series) >= MIN_POINTS:
+                    return series, label
+            return {}, None
         series, _ = self.history(symbol)
         if in_usd and series:
             usd, _ = self.history("THB=X")
             series = multiply(series, usd) if usd else {}
-        return series
+        log.info("index %s via %s: %d points", key, symbol, len(series))
+        return series, None
 
     def ticker(self, code: str, underlying: str | None,
                points: list[tuple[date, float]]) -> tuple[dict[date, float], str]:

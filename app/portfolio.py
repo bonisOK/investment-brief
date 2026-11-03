@@ -193,9 +193,13 @@ def _book_inputs(book: str, results: list[dict], fetch: pricehist.Fetcher, today
             aligned[-1] = sheet_px
         prices[code] = aligned
 
-    idx = {k: pricehist.align(fetch.index(k), days) for k in DEFAULT_INDEXES[book] + [
-        k for k in pricehist.INDEXES if k not in DEFAULT_INDEXES[book]]}
-    return txns, warns, days, prices, idx, names, domains, sources
+    idx, labels = {}, {}
+    for k in pricehist.INDEXES:
+        series, label = fetch.index(k)
+        idx[k] = pricehist.align(series, days)
+        if label:
+            labels[k] = label
+    return txns, warns, days, prices, idx, names, domains, sources, labels
 
 
 def reconcile(book: str, held_now: dict[str, float], stock_value: float,
@@ -220,9 +224,10 @@ def build(results: list[dict], today: date | None = None) -> dict:
     out = {"default_indexes": DEFAULT_INDEXES}
     for book in ("growth", "dividend"):
         try:
-            txns, warns, days, prices, idx, names, domains, sources = _book_inputs(
+            txns, warns, days, prices, idx, names, domains, sources, labels = _book_inputs(
                 book, results, fetch, today)
             p = compute_book(txns, days, prices, idx, names, domains, sources)
+            p["index_labels"] = labels
             p["warnings"] = warns + p["warnings"]
             p["sources"] = {s: sum(1 for v in sources.values() if v == s)
                             for s in ("dr", "underlying", "est")}

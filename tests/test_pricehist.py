@@ -44,3 +44,19 @@ def test_ticker_prefers_own_dr_history_then_underlying_then_trades():
 
     series, src = FakeFetcher({}).ticker("IREN", None, [(D[1], 1678.75)])
     assert src == "est" and series == {D[1]: 1678.75}
+
+
+def test_set_falls_back_until_a_source_has_data(monkeypatch):
+    f = FakeFetcher({"TDEX.BK": ({date(2026, 3, d): 30.0 + d for d in range(1, 31)}, "THB")})
+    monkeypatch.setattr(f, "yahoo_chart", lambda s: {})
+    monkeypatch.setattr(f, "set_api", lambda s: {})
+    series, label = f.index("set")
+    assert len(series) == 30 and "TDEX" in label
+    f2 = FakeFetcher({"^SET.BK": ({date(2026, 3, d): 1400.0 for d in range(1, 31)}, "THB")})
+    assert f2.index("set")[1] == "SET index, price only"
+
+
+def test_parse_set_api_quotes_defensively():
+    payload = {"quotations": [{"datetime": "2026-03-02T00:00:00+07:00", "price": 1401.5},
+                              {"date": "2026-03-03", "value": 1399.0}, {"datetime": "bad"}, "x"]}
+    assert pricehist._parse_quotes(payload) == {date(2026, 3, 2): 1401.5, date(2026, 3, 3): 1399.0}

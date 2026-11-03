@@ -259,15 +259,21 @@ function render(key) {
   q(root, 'ret').innerHTML = `<span class="${cls(ret)}">${ret >= 0 ? '▲' : '▼'} ${pct(ret)}</span> <span class="thb ${cls(gain)}">${signed(gain)}</span> <span style="color:var(--muted);font-weight:400;font-size:.85rem">vs money put in</span>`;
   q(root, 'foot').innerHTML = `Money put in <b class="thb">${fmtFull(S.deposits)}</b> across ${S.n_deposits} deposit${S.n_deposits === 1 ? '' : 's'}`;
   const defaults = (PORT.default_indexes || {})[key] || ['spx'];
-  const lastOf = k => { const s = D.series[k]; for (let i = s.length - 1; i >= 0; i--) if (s[i] != null) return s[i]; return null; };
-  const best = defaults.filter(k => lastOf(k) != null).map(k => ({ ix: INDEXES.find(x => x.key === k), diff: S.total - lastOf(k) })).sort((a, b) => a.diff - b.diff)[0];
+  const lastOf = k => { const s = D.series[k] || []; for (let i = s.length - 1; i >= 0; i--) if (s[i] != null) return s[i]; return null; };
+  // Return on the money put in, for you and for each shadow index:
+  // value / money in - 1. The gap between the two is in percentage points.
+  const moneyNow = lastOf('money') || S.deposits;
+  const retOf = v => (moneyNow ? v / moneyNow - 1 : 0);
+  const pts = v => (v >= 0 ? '+' : '−') + Math.abs(v * 100).toFixed(1) + ' pts';
+  const youRet = retOf(S.total);
+  const best = defaults.filter(k => lastOf(k) != null).map(k => ({ ix: INDEXES.find(x => x.key === k), diff: S.total - lastOf(k), ixRet: retOf(lastOf(k)) })).sort((a, b) => a.diff - b.diff)[0];
   const tiles = [
     ['Cash', `<span class="thb">${fmtFull(S.cash)}</span>`, (S.total ? S.cash / S.total * 100 : 0).toFixed(1) + '% of assets', ''],
     ['Unrealized', `<span class="thb">${signed(S.unrealized)}</span>`, 'on stocks you still hold', cls(S.unrealized)],
     ['Realized', `<span class="thb">${signed(S.realized)}</span>`, 'from stocks you sold', cls(S.realized)],
     ['Dividends', `<span class="thb">${signed(S.dividends)}</span>`, 'received, after tax', 'pos'],
     ['Stocks held', String(S.held_count), S.sold_count + ' sold out', ''],
-    best ? [`vs ${best.ix.name} shadow`, `<span class="thb">${signed(best.diff)}</span>`, best.diff >= 0 ? 'you are ahead' : 'the index is ahead', cls(best.diff)]
+    best ? [`vs ${best.ix.name} shadow`, pts(youRet - best.ixRet), `you ${pct(youRet)} · index ${pct(best.ixRet)}`, cls(best.diff)]
          : ['vs index', '–', 'no index data', ''],
   ];
   q(root, 'tiles').innerHTML = tiles.map(([l, v, n, c]) => `<div class="tile"><div class="lab">${l}</div><div class="val ${c}">${v}</div><div class="note">${n}</div></div>`).join('');
@@ -318,7 +324,8 @@ function render(key) {
   function drawLegend(time) {
     let idx = time ? days.indexOf(time) : days.length - 1;
     if (idx < 0) idx = days.length - 1;
-    const v = (k) => { const x = (D.series[k] || [])[idx]; return x == null ? '–' : money(x); };
+    const m = (D.series.money || [])[idx];
+    const v = (k) => { const x = (D.series[k] || [])[idx]; return x == null ? '–' : money(x) + (k !== 'money' && m ? ` <span class="${cls(x / m - 1)}">(${pct(x / m - 1)})</span>` : ''); };
     const rows = [`<div class="d">${fmtDate(days[idx])} ${days[idx].slice(0, 4)}</div>`,
       `<div class="r"><i style="background:var(--you)"></i>You <b>${v('you')}</b></div>`];
     if (state.mode === 'perf') {
@@ -337,8 +344,8 @@ function render(key) {
     const el = q(root, 'verdicts');
     if (state.mode !== 'perf') { el.innerHTML = ''; return; }
     el.innerHTML = INDEXES.filter(ix => state.ix[ix.key] && lastOf(ix.key) != null).map(ix => {
-      const diff = S.total - lastOf(ix.key);
-      return `<div class="verdict"><span class="k" style="background:var(${ix.color})"></span>vs ${ix.name}: <b class="${cls(diff)}">${diff >= 0 ? '+' : '−'}${money(Math.abs(diff))}</b> <span style="color:var(--muted)">${diff >= 0 ? 'you are ahead' : 'index is ahead'}</span></div>`;
+      const diff = S.total - lastOf(ix.key), ixRet = retOf(lastOf(ix.key));
+      return `<div class="verdict"><span class="k" style="background:var(${ix.color})"></span>vs ${ix.name}: <b class="${cls(diff)}">${pts(youRet - ixRet)}</b> <span style="color:var(--muted)">you ${pct(youRet)} · index ${pct(ixRet)} · ${diff >= 0 ? '+' : '−'}${money(Math.abs(diff))}</span></div>`;
     }).join('') || '<div class="hint">Pick an index in Compare to see the shadow line.</div>';
   }
   function applyPeriod() {
@@ -361,7 +368,7 @@ function render(key) {
     verdicts(); drawLegend(null); applyPeriod();
   }
   const menu = q(root, 'ddmenu');
-  menu.innerHTML = INDEXES.map(ix => `<label><input type="checkbox" id="${key}-ix-${ix.key}" data-ix="${ix.key}" ${state.ix[ix.key] ? 'checked' : ''} ${D.series[ix.key] && D.series[ix.key].some(v => v != null) ? '' : 'disabled'}><span class="key" style="background:var(${ix.color})"></span>${ix.name}<small>${ix.note}</small></label>`).join('');
+  menu.innerHTML = INDEXES.map(ix => `<label><input type="checkbox" id="${key}-ix-${ix.key}" data-ix="${ix.key}" ${state.ix[ix.key] ? 'checked' : ''} ${D.series[ix.key] && D.series[ix.key].some(v => v != null) ? '' : 'disabled'}><span class="key" style="background:var(${ix.color})"></span>${ix.name}<small>${escH((D.index_labels || {})[ix.key] || ix.note)}</small></label>`).join('');
   const ddLabel = () => { const on = INDEXES.filter(ix => state.ix[ix.key]).map(ix => ix.name); q(root, 'ddsum').textContent = 'Compare: ' + (on.length ? on.join(', ') : 'none'); };
   menu.addEventListener('change', e => { state.ix[e.target.dataset.ix] = e.target.checked; ddLabel(); applyMode(); });
   ddLabel();
@@ -518,14 +525,30 @@ function show(tab) {
   if (!TABS.includes(tab)) tab = 'brief';
   TABS.forEach(t => { document.getElementById('tab-' + t).hidden = t !== tab; });
   document.querySelectorAll('.tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === tab));
-  if (tab !== 'brief' && !built[tab]) render(tab);
+  if (tab !== 'brief' && !built[tab]) {
+    try { render(tab); }
+    catch (err) {
+      // Never leave a blank tab: say what broke, and retry on the next click.
+      document.getElementById('tab-' + tab).innerHTML = `<div class="card failed"><b>This tab hit an error while drawing.</b><br><span class="hint">${escH(err && err.message)}</span></div>`;
+      delete built[tab];
+    }
+  }
 }
 document.addEventListener('click', e => { document.querySelectorAll('.port details.dd[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
 
+// Tab clicks switch directly. StatiCrypt shows the page by writing it into a
+// fresh document, and there the browser does not reliably fire hashchange
+// for #links, so the hash is only updated for bookmarks, never relied on.
+document.querySelectorAll('.tabs a[data-tab]').forEach(a => a.addEventListener('click', e => {
+  e.preventDefault();
+  try { history.replaceState(null, '', '#' + a.dataset.tab); } catch (err) { /* written docs may refuse */ }
+  show(a.dataset.tab);
+}));
+
 // Runs after the brief's own script (below this include) has defined
 // applyPrivacy: Hide ฿ then also hides chart axes, by rebuilding open tabs.
-addEventListener('DOMContentLoaded', () => {
-  if (typeof applyPrivacy === 'function') {
+function init() {
+  if (typeof applyPrivacy === 'function' && !baseApply) {
     baseApply = applyPrivacy;
     window.applyPrivacy = applyPrivacy = function (on) {
       baseApply(on);
@@ -534,7 +557,10 @@ addEventListener('DOMContentLoaded', () => {
   }
   addEventListener('hashchange', () => show(location.hash.slice(1)));
   show(location.hash.slice(1));
-});
+}
+// A written document may already be past DOMContentLoaded when this runs.
+if (document.readyState === 'loading') addEventListener('DOMContentLoaded', init);
+else setTimeout(init, 0);
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
   Object.keys(built).forEach(destroy); show(location.hash.slice(1));
 });

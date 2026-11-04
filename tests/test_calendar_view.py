@@ -54,3 +54,18 @@ def test_upcoming_earnings_lines_and_day_order():
     assert first["kind"] == "earnings" and second["kind"] == "pay"
     assert first["lines"] == ["Report time not set", "EPS estimate 2.50"]
     assert second["lines"] == ["4.50 THB/share", "XD was 20 Oct"]
+
+
+def test_earn_flag_marks_reports_and_unfolded_earnings_news():
+    out = cv.build([
+        {"id": "e1", "date": "2026-10-07", "kind": "earnings", "code": "MU80", "tone": "good"},
+        {"id": "n1", "date": "2026-10-20", "kind": "news", "code": "ADVANC", "codes": ["ADVANC"],
+         "scope": "stock", "tag": "earnings", "tone": "bad", "headline": "Profit warning"},
+        {"id": "n2", "date": "2026-10-20", "kind": "news", "code": "ADVANC", "codes": ["ADVANC"],
+         "scope": "stock", "tag": "legal", "tone": "bad", "headline": "Lawsuit"},
+        {"id": "x1", "date": "2026-12-02", "kind": "xd", "code": "ADVANC", "tone": "neutral"},
+    ], DOMAINS, TODAY)
+    assert out["days"]["2026-10-07"][0]["earn"] is True
+    assert {i["title"]: i["earn"] for i in out["days"]["2026-10-20"]} == {
+        "Profit warning": True, "Lawsuit": False}
+    assert out["days"]["2026-12-02"][0]["earn"] is False

@@ -82,6 +82,7 @@ def _item(e: dict, domains: dict, today: date) -> dict:
     codes = e.get("codes") or ([e["code"]] if e.get("code") else [])
     return {
         "kind": e["kind"], "badge": _badge(e), "tone": e.get("tone") or "neutral",
+        "earn": e["kind"] == "earnings" or e.get("tag") == "earnings",
         "codes": codes, "code": codes[0] if codes else None,
         "domain": domains.get(codes[0]) if codes else None,
         "icon": SCOPE_ICON.get(e.get("scope")) if not codes else None,

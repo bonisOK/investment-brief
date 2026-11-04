@@ -67,6 +67,8 @@
   .calhead h2 { margin: 0; flex: 1; }
   .calnav { font-size: 1rem; line-height: 1; color: var(--text-secondary); background: none; border: 1px solid var(--border); border-radius: 8px; padding: 4px 11px; cursor: pointer; }
   .calnav:disabled { opacity: .3; cursor: default; }
+  .calfilt { font-size: .78rem; color: var(--text-secondary); background: none; border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
+  .calfilt[aria-pressed="true"] { color: var(--text-primary); font-weight: 650; border-color: var(--text-primary); background: color-mix(in srgb, var(--text-primary) 9%, transparent); }
   .calgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
   .cdow { font-size: .66rem; color: var(--muted); text-align: center; text-transform: uppercase; letter-spacing: .04em; padding-bottom: 2px; }
   .cday { min-height: 56px; border: 1px solid var(--grid); border-radius: 8px; padding: 3px 2px 4px 3px; cursor: pointer; background: none; color: inherit; font: inherit; text-align: left; display: flex; flex-direction: column; min-width: 0; }
@@ -232,6 +234,7 @@
   <div class="calhead">
     <button class="calnav" id="calprev" aria-label="Previous month">‹</button>
     <h2 id="caltitle">🗓️ Calendar</h2>
+    <button class="calfilt" id="calearn" aria-pressed="false" title="Show only earnings reports">📊 Earnings only</button>
     <button class="calnav" id="calnext" aria-label="Next month">›</button>
   </div>
   <div class="calgrid" id="calgrid"></div>
@@ -468,6 +471,13 @@ if (localStorage.getItem('privacy') === '1') addEventListener('DOMContentLoaded'
 const CAL = {{ cal_json | safe }};
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 let calMonth = CAL.today.slice(0, 7), calSel = CAL.today;
+let calEarnOnly = false;
+try { calEarnOnly = localStorage.getItem('calEarnOnly') === '1'; } catch (e) {}
+/* Items for one day, after the Earnings-only filter. */
+function dayItems(key) {
+  const items = CAL.days[key] || [];
+  return calEarnOnly ? items.filter(it => it.earn) : items;
+}
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -494,7 +504,7 @@ function renderCalGrid() {
   let h = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => `<div class="cdow">${d}</div>`).join('');
   h += '<div class="cblank"></div>'.repeat(lead);
   for (let d = 1; d <= ndays; d++) {
-    const key = iso(y, m, d), items = CAL.days[key] || [];
+    const key = iso(y, m, d), items = dayItems(key);
     const cls = ['cday', key === CAL.today ? 'today' : '', key < CAL.today ? 'past' : '', key === calSel ? 'sel' : ''].join(' ');
     const shown = items.slice(0, 4).map(chip).join('');
     const more = items.length > 4 ? `<span class="cmore">+${items.length - 4}</span>` : '';
@@ -519,16 +529,16 @@ function calItem(it, withDate) {
 }
 
 function renderCalPanel() {
-  const items = CAL.days[calSel] || [];
+  const items = dayItems(calSel);
   const label = calSel === CAL.today ? 'Today' : shortDate(calSel);
   let h = `<h3>${label}</h3>`;
   if (items.length) {
     h += items.map(it => calItem(it)).join('');
   } else {
-    h += '<p class="calempty">Nothing big on this day.</p>';
+    h += `<p class="calempty">${calEarnOnly ? 'No earnings on this day.' : 'Nothing big on this day.'}</p>`;
     if (calSel === CAL.today) {
       const next = Object.keys(CAL.days).filter(d => d > CAL.today).sort()
-        .flatMap(d => CAL.days[d].map(it => [d, it])).slice(0, 3);
+        .flatMap(d => dayItems(d).map(it => [d, it])).slice(0, 3);
       if (next.length) h += '<h3>Coming up</h3>' + next.map(([d, it]) => calItem(it, d)).join('');
     }
   }
@@ -544,6 +554,16 @@ function shiftMonth(delta) {
 }
 document.getElementById('calprev').addEventListener('click', () => shiftMonth(-1));
 document.getElementById('calnext').addEventListener('click', () => shiftMonth(1));
+function applyEarnFilter() {
+  document.getElementById('calearn').setAttribute('aria-pressed', calEarnOnly ? 'true' : 'false');
+  renderCalGrid(); renderCalPanel();
+}
+document.getElementById('calearn').addEventListener('click', () => {
+  calEarnOnly = !calEarnOnly;
+  try { localStorage.setItem('calEarnOnly', calEarnOnly ? '1' : '0'); } catch (e) {}
+  applyEarnFilter();
+});
+document.getElementById('calearn').setAttribute('aria-pressed', calEarnOnly ? 'true' : 'false');
 renderCalGrid();
 renderCalPanel();
 
